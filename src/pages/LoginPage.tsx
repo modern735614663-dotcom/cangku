@@ -53,11 +53,10 @@ export default function LoginPage({ onLogin }: Props) {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="text-center mb-8">
-          {/* Logo 图片占位 - 替换 src 为实际 logo 路径 */}
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-white/10 flex items-center justify-center overflow-hidden">
+          <div className="w-24 h-24 mx-auto mb-4 flex items-center justify-center">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain"
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            <span className="text-4xl">🏷️</span>
+            <span className="text-4xl hidden">🏷️</span>
           </div>
           <h1 className="text-2xl font-bold text-white">紫城服饰仓库管理系统</h1>
           <p className="text-slate-400 text-sm mt-1">
