@@ -7,6 +7,7 @@ import type {
   ChartGranularity,
   TrendDataPoint,
   TrendSeries,
+  MergedRow,
 } from '../types';
 import { getPeriodRange, generateTrendSlots } from './date';
 
@@ -203,3 +204,42 @@ export function getAvailableProducts(
     })
     .filter((p) => p.stock > 0);
 }
+
+/** 合并同款同色货品为一行（多尺码展示） */
+export function mergeBySkuColor(
+  products: Product[],
+  inventories: Inventory[]
+): MergedRow[] {
+  const map = new Map<string, MergedRow>();
+
+  for (const p of products) {
+    const key = `${p.sku}|${p.color}`;
+    let row = map.get(key);
+    if (!row) {
+      row = {
+        productIds: [],
+        sku: p.sku,
+        category: p.category,
+        color: p.color,
+        image: p.image,
+        price: p.price,
+        sizes: {},
+      };
+      map.set(key, row);
+    }
+    // 用最高价格
+    if (p.price > row.price) row.price = p.price;
+    if (p.image && !row.image) row.image = p.image;
+    row.productIds.push(p.id);
+
+    const invA = inventories.find((i) => i.productId === p.id && i.warehouseId === 'warehouse-a');
+    const invB = inventories.find((i) => i.productId === p.id && i.warehouseId === 'warehouse-b');
+    row.sizes[p.size] = {
+      stockA: invA?.quantity ?? 0,
+      stockB: invB?.quantity ?? 0,
+    };
+  }
+
+  return Array.from(map.values());
+}
+

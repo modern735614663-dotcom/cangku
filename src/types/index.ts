@@ -19,7 +19,7 @@ export type SizeOption = (typeof SIZES)[number];
 export const INBOUND_SOURCES = ['采购', '退货', '其他'] as const;
 export type InboundSource = (typeof INBOUND_SOURCES)[number];
 
-export const OUTBOUND_REASONS = ['TK总店备货', 'TK1号店备货', 'TK2号店备货', '1688销售', '审核寄样', '带货寄样'] as const;
+export const OUTBOUND_REASONS = ['TK总店备货', 'TK1号店备货', 'TK2号店备货', 'TK 1号店JIT销售', '1688销售', 'temu备货', '审核寄样', '带货寄样'] as const;
 export type OutboundReason = (typeof OUTBOUND_REASONS)[number];
 
 // ====== 用户认证 ======
@@ -54,19 +54,31 @@ export interface Inventory {
   quantity: number;
 }
 
-/** 批量表单行 */
+/** 批量表单行（多尺码） */
 export interface BatchRow {
-  id: string; // 行唯一ID
-  productId: string; // 选择的货品ID（空表示全新款）
-  quantity: number;
-  price: number; // 单价（入库用）
-  // 全新款数据
+  id: string;
+  productId: string;  // 选择已有货品ID（空=全新款）
+  color: string;       // 颜色（选已有货品时自动带出）
+  sizes: Record<string, number>; // 尺码→数量 { S: 5, M: 10, L: 0 }
+  price: number;
+  // 全新款
   isNewProduct?: boolean;
   newSku?: string;
   newCategory?: string;
-  newColor?: string;
-  newSize?: string;
   newImage?: string;
+  // 颜色自定义
+  customColor?: string;
+}
+
+/** 库存合并显示行 */
+export interface MergedRow {
+  productIds: string[];   // 合并的货品ID列表
+  sku: string;
+  category: string;
+  color: string;
+  image?: string;
+  price: number;
+  sizes: Record<string, { stockA: number; stockB: number }>;
 }
 
 /** 操作记录 */
