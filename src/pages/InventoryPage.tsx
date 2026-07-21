@@ -52,16 +52,6 @@ export default function InventoryPage() {
     }, 0);
   }, [filtered, warehouseId]);
 
-  const hasLowStock = useMemo(() => {
-    for (const r of filtered) {
-      for (const sz of Object.values(r.sizes)) {
-        const s = warehouseId === 'warehouse-a' ? sz.stockA : warehouseId === 'warehouse-b' ? sz.stockB : sz.stockA + sz.stockB;
-        if (s > 0 && s < 5) return true;
-      }
-    }
-    return false;
-  }, [filtered, warehouseId]);
-
   const handleImageChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]; if (!file) return;
     const reader = new FileReader();
@@ -149,9 +139,8 @@ export default function InventoryPage() {
       </div>
 
       <div className="px-4">
-        <div className="text-xs text-gray-400 flex justify-between">
-          <span>共 {filtered.length} 款 | {totalStock} 件 | ¥{totalValue.toLocaleString()}</span>
-          {hasLowStock && <span className="text-red-500 font-medium">⚠️ 库存预警</span>}
+        <div className="text-xs text-gray-400">
+          共 {filtered.length} 款 | {totalStock} 件 | ¥{totalValue.toLocaleString()}
         </div>
       </div>
 
@@ -181,7 +170,7 @@ export default function InventoryPage() {
                       const sz = row.sizes[size];
                       if (!sz) return null;
                       const s = warehouseId === 'warehouse-a' ? sz.stockA : warehouseId === 'warehouse-b' ? sz.stockB : sz.stockA + sz.stockB;
-                      const low = s > 0 && s < 5;
+                      const low = s < 5;
                       return (
                         <span key={size} className="text-[10px]">
                           <span className="text-gray-400">{size}:</span>

@@ -2,6 +2,7 @@ import type {
   Product,
   Inventory,
   OutboundDoc,
+  InboundDoc,
   WarehouseId,
   Period,
   ChartGranularity,
@@ -53,7 +54,7 @@ export function calcTotalValue(
   return Math.round(total * 100) / 100;
 }
 
-/** 统计所有出库（不再区分理由） */
+/** 统计所有出库 */
 export function calcTotalOutbound(
   outboundDocs: OutboundDoc[],
   period: Period,
@@ -67,6 +68,23 @@ export function calcTotalOutbound(
   });
   return filtered.reduce((sum, doc) => {
     return sum + doc.items.reduce((s, item) => s + item.quantity, 0);
+  }, 0);
+}
+
+/** 统计所有入库 */
+export function calcTotalInbound(
+  inboundDocs: InboundDoc[],
+  period: Period,
+  warehouseId?: WarehouseId
+): number {
+  const { start, end } = getPeriodRange(period);
+  const filtered = inboundDocs.filter((doc) => {
+    if (doc.timestamp < start || doc.timestamp > end) return false;
+    if (warehouseId && doc.warehouseId !== warehouseId) return false;
+    return true;
+  });
+  return filtered.reduce((sum, doc) => {
+    return sum + doc.items.reduce((s, item) => s + (item.quantity || 0), 0);
   }, 0);
 }
 

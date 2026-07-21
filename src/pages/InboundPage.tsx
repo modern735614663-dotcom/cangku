@@ -111,9 +111,22 @@ export default function InboundPage() {
       // 写入入库单
       const docId = generateId();
       useStore.setState((s) => ({ inboundDocs: [...s.inboundDocs, { id: docId, source, warehouseId, items, operator: username, timestamp: Date.now() }] }));
+      // 构建日志明细
+      const logItems = items.map((it) => {
+        const p = products.find((pr) => pr.id === it.productId);
+        const nd = it.newProductData;
+        return {
+          sku: nd?.sku || p?.sku || '未知',
+          color: nd?.color || p?.color || '',
+          size: nd?.size || p?.size || '',
+          quantity: it.quantity,
+          price: it.price || p?.price || 0,
+        };
+      });
       addLog({
         operator: username, type: 'inbound', documentId: docId,
         summary: `批量入库 ${validRows.length} 款 ${totalQty} 件（${source}）`,
+        items: logItems,
         detail: { warehouse: WAREHOUSE_LABELS[warehouseId], quantity: totalQty, sourceOrReason: source },
       });
       save();
@@ -166,13 +179,21 @@ export default function InboundPage() {
                   <input type="text" value={row.newSku || ''} onChange={(e) => updateRow(row.id, { newSku: e.target.value })}
                     placeholder="输入新款号" className="flex-1 px-2 py-1 bg-yellow-50 rounded border border-yellow-200 text-xs outline-none" />
                 ) : (
-                  <select value={row.productId} onChange={(e) => handleProductSelect(row, e.target.value)}
-                    className="flex-1 px-1 py-1 bg-white rounded border border-gray-200 text-xs outline-none">
-                    <option value="">选择款号...</option>
-                    {products.map((p) => (
-                      <option key={p.id} value={p.id}>{p.sku} ({p.color}/{p.size} ¥{p.price})</option>
-                    ))}
-                  </select>
+                  <div className="flex-1 relative">
+                  <input type="text" value={(row as any).search || ''}
+                    onChange={(e) => updateRow(row.id, { search: e.target.value } as any)}
+                    placeholder="🔍 搜索款号" className="w-full px-1 py-1 bg-white rounded border border-gray-200 text-xs outline-none" />
+                  {((row as any).search?.length > 0) && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-32 overflow-y-auto">
+                      {products.filter((p) => p.sku.toLowerCase().includes((row as any).search.toLowerCase()) || p.color.includes((row as any).search)).slice(0, 20).map((p) => (
+                        <button key={p.id} type="button" onClick={() => { handleProductSelect(row, p.id); updateRow(row.id, { search: '' } as any); }}
+                          className="w-full px-2 py-1.5 text-left text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0">
+                          {p.sku} <span className="text-gray-400">{p.color}/{p.size} ¥{p.price}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 )}
 
                 {/* 颜色 */}
@@ -248,15 +269,23 @@ export default function InboundPage() {
               )}
 
               {/* 尺码网格 */}
-              <div className="px-3 py-2 grid grid-cols-4 gap-1.5">
-                {Array.from(SIZES).map((size) => (
-                  <div key={size} className="flex items-center gap-1">
-                    <span className="text-[10px] text-gray-400 w-6 text-right">{size}</span>
-                    <input type="number" value={row.sizes[size] || 0}
-                      onChange={(e) => updateSize(row.id, size, Math.max(0, parseInt(e.target.value) || 0))}
-                      className="flex-1 px-1 py-1 bg-gray-50 rounded border border-gray-100 text-xs outline-none text-center" min={0} />
-                  </div>
-                ))}
+              <div className="px-3 py-2 grid grid-cols-3 gap-1">
+                {Array.from(SIZES).map((size) => {
+                  const val = row.sizes[size] || 0;
+                  return (
+                    <div key={size} className="flex items-center gap-0.5">
+                      <span className="text-[10px] text-gray-400 w-5 text-right shrink-0">{size}</span>
+                      <input type="number" value={val}
+                        onChange={(e) => updateSize(row.id, size, Math.max(0, parseInt(e.target.value) || 0))}
+                        className="flex-1 px-1 py-1 bg-gray-50 rounded border border-gray-100 text-xs outline-none text-center min-w-0" min={0} />
+                      {size === '其他' && val > 0 && (
+                        <input type="text" value={(row as any).customSize || ''}
+                          onChange={(e) => updateRow(row.id, { customSize: e.target.value } as any)}
+                          placeholder="码名" className="w-10 px-1 py-1 bg-yellow-50 rounded border border-yellow-200 text-[10px] outline-none" />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
               <div className="px-3 pb-2 text-[10px] text-gray-400">
                 合计 {totalQty} 件

@@ -13,7 +13,7 @@ export type Category = (typeof CATEGORIES)[number];
 export const COLORS = ['白色', '黑色', '绿色', '红色', '杏色', '紫色', '粉红色', '蓝色', '棕色', '玫红色', '卡其色', '灰色', '豹纹', '拼色', '其他'] as const;
 export type Color = (typeof COLORS)[number];
 
-export const SIZES = ['S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'] as const;
+export const SIZES = ['S', 'M', 'L', 'XL', 'XXL', '其他'] as const;
 export type SizeOption = (typeof SIZES)[number];
 
 export const INBOUND_SOURCES = ['采购', '退货', '其他'] as const;
@@ -89,6 +89,12 @@ export interface OperationLog {
   documentId: string;
   summary: string;
   timestamp: number;
+  revoked?: boolean;
+  revokeInfo?: { operator: string; timestamp: number };
+  // 货品明细（用于日志详情弹窗）
+  items?: Array<{
+    sku: string; color: string; size: string; quantity: number; price?: number;
+  }>;
   detail: {
     warehouse: string;
     sku?: string;

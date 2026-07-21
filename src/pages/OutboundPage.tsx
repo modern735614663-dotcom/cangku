@@ -168,18 +168,23 @@ export default function OutboundPage() {
                 <span className="text-xs text-gray-500">{prod?.color || ''}</span>
                 <button onClick={() => deleteRow(row.id)} className="text-red-400 text-lg shrink-0">&times;</button>
               </div>
-              <div className="px-3 py-2 grid grid-cols-4 gap-1.5">
+              <div className="px-3 py-2 grid grid-cols-3 gap-1">
                 {Array.from(SIZES).map((size) => {
                   const stock = row.productId ? getStockForSize(row.productId, size) : 0;
                   const val = row.sizes[size] || 0;
                   const over = val > stock && stock > 0;
                   return (
-                    <div key={size} className="flex items-center gap-1">
-                      <span className="text-[10px] text-gray-400 w-6 text-right">{size}</span>
+                    <div key={size} className="flex items-center gap-0.5">
+                      <span className="text-[10px] text-gray-400 w-5 text-right shrink-0">{size}</span>
                       <input type="number" value={val}
                         onChange={(e) => updateSize(row.id, size, Math.max(0, parseInt(e.target.value) || 0))}
-                        className={`flex-1 px-1 py-1 rounded border text-xs outline-none text-center ${over ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-100'}`}
+                        className={`flex-1 px-1 py-1 rounded border text-xs outline-none text-center min-w-0 ${over ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-100'}`}
                         min={0} max={stock} />
+                      {size === '其他' && val > 0 && (
+                        <input type="text" value={(row as any).customSize || ''}
+                          onChange={(e) => updateRow(row.id, { customSize: e.target.value } as any)}
+                          placeholder="码名" className="w-10 px-1 py-1 bg-yellow-50 rounded border border-yellow-200 text-[10px] outline-none" />
+                      )}
                     </div>
                   );
                 })}

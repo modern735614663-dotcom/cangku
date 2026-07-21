@@ -53,7 +53,8 @@ interface WarehouseState extends AppData {
   addPending: (doc: Omit<PendingDoc, 'id' | 'status' | 'createdAt'>) => PendingDoc;
   approvePending: (id: string, reviewer: string) => boolean;
   rejectPending: (id: string, reviewer: string) => void;
-  addLog: (log: Omit<OperationLog, 'id' | 'timestamp'>) => void;
+  addLog: (log: Omit<OperationLog, 'id' | 'timestamp' | 'revoked' | 'revokeInfo'>) => void;
+  revokeOperation: (logId: string) => boolean;
   createTransfer: (params: {
     fromWarehouse: WarehouseId; toWarehouse: WarehouseId;
     productId: string; quantity: number;
@@ -215,6 +216,58 @@ export const useStore = create<WarehouseState>()((set, get) => ({
   addLog: (log) => {
     const entry: OperationLog = { ...log, id: generateId(), timestamp: Date.now() };
     set((s) => ({ operationLogs: [entry, ...s.operationLogs] }));
+  },
+
+  revokeOperation: (logId) => {
+    const log = get().operationLogs.find((l) => l.id === logId);
+    if (!log || log.revoked) return false;
+
+    const user = get().currentUser;
+    const username = user?.username || '管理员';
+    const now = Date.now();
+
+    if (log.type === 'inbound') {
+      // 入库撤销 = 扣回库存
+      const doc = get().inboundDocs.find((d) => d.id === log.documentId);
+      if (doc) {
+        for (const item of doc.items) {
+          get().addInventory(item.productId, doc.warehouseId, -(item.quantity || 0));
+        }
+      }
+    } else if (log.type === 'outbound') {
+      // 出库撤销 = 加回库存
+      const doc = get().outboundDocs.find((d) => d.id === log.documentId);
+      if (doc) {
+        for (const item of doc.items) {
+          get().addInventory(item.productId, doc.warehouseId, item.quantity);
+        }
+      }
+    } else if (log.type === 'transfer') {
+      // 转仓撤销 = 从目标仓退回来源仓
+      const doc = get().transferDocs.find((d) => d.id === log.documentId);
+      if (doc) {
+        get().subInventory(doc.productId, doc.toWarehouse as WarehouseId, doc.quantity);
+        get().addInventory(doc.productId, doc.fromWarehouse as WarehouseId, doc.quantity);
+      }
+    }
+
+    // 标记撤销
+    set((s) => ({
+      operationLogs: s.operationLogs.map((l) =>
+        l.id === logId ? { ...l, revoked: true, revokeInfo: { operator: username, timestamp: now } } : l
+      ),
+    }));
+
+    // 生成撤销记录
+    get().addLog({
+      operator: username, type: log.type, documentId: log.documentId,
+      summary: `撤销了 ${log.operator} 的${log.summary}`,
+      items: log.items,
+      detail: { ...log.detail },
+    });
+
+    setTimeout(() => get().save(), 0);
+    return true;
   },
 
   createTransfer: ({ fromWarehouse, toWarehouse, productId, quantity }) => {

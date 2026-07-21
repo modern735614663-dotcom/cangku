@@ -6,7 +6,7 @@ import OperationLogList from '../components/OperationLogList';
 import LogDetailModal from '../components/LogDetailModal';
 import {
   calcTotalStock, calcStockByWarehouse, calcTotalOutbound,
-  calcOutboundValue, calcTrendComparison, calcTotalValue,
+  calcOutboundValue, calcTrendComparison, calcTotalValue, calcTotalInbound,
 } from '../utils/stats';
 import { WAREHOUSE_LABELS } from '../types';
 import type { WarehouseId, Period, ChartGranularity, OperationLog } from '../types';
@@ -35,8 +35,10 @@ export default function DashboardPage() {
   const products = useStore((s) => s.products);
   const inventories = useStore((s) => s.inventories);
   const outboundDocs = useStore((s) => s.outboundDocs);
+  const inboundDocs = useStore((s) => s.inboundDocs);
   const operationLogs = useStore((s) => s.operationLogs);
   const currentUser = useStore((s) => s.currentUser);
+  const revokeOperation = useStore((s) => s.revokeOperation);
 
   const warehouseId = warehouse === 'all' ? undefined : warehouse;
 
@@ -55,6 +57,13 @@ export default function DashboardPage() {
       valueAmount: calcOutboundValue(products, outboundDocs, p.key, warehouseId),
     })),
     [outboundDocs, warehouseId, products]
+  );
+
+  const inboundStats = useMemo(() =>
+    PERIODS.map((p) => ({
+      ...p, value: calcTotalInbound(inboundDocs, p.key, warehouseId),
+    })),
+    [inboundDocs, warehouseId]
   );
 
   const trendSeries = useMemo(
@@ -122,6 +131,24 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* 入库统计 */}
+      <div className="px-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm">📥</span>
+            <span className="text-xs text-gray-500 font-medium">入库统计</span>
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {inboundStats.map((s) => (
+              <div key={s.key} className="text-center">
+                <div className="text-xs text-gray-400">{s.label}</div>
+                <div className="text-base font-bold text-gray-900">{s.value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* 趋势对比图 */}
       <div className="px-4">
         <div className="bg-white rounded-2xl p-4 shadow-sm">
@@ -167,7 +194,7 @@ export default function DashboardPage() {
           <span className="text-sm">📝</span>
           <span className="text-xs text-gray-500 font-medium">操作记录（点击查看详情）</span>
         </div>
-        <OperationLogList logs={recentLogs} onLogClick={setSelectedLog} />
+        <OperationLogList logs={recentLogs} onLogClick={setSelectedLog} onRevoke={revokeOperation} />
       </div>
 
       {selectedLog && (
