@@ -46,7 +46,7 @@ export default function TransferPage() {
     return inv?.quantity ?? 0;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const validRows = rows.filter((r) => r.productId && Object.values(r.sizes).some(v => v > 0));
     if (validRows.length === 0) { showToast('请至少填写一个尺码', 'error'); return; }
 
@@ -68,7 +68,7 @@ export default function TransferPage() {
     // 第二遍：全部执行
     let ok = 0;
     for (const t of transfers) {
-      const r = createTransfer({ fromWarehouse, toWarehouse, productId: t.productId, quantity: t.quantity });
+      const r = await createTransfer({ fromWarehouse, toWarehouse, productId: t.productId, quantity: t.quantity });
       if (r) ok++;
     }
     showToast(`转仓成功！${ok} 项`, 'success');

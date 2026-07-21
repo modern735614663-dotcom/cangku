@@ -15,7 +15,7 @@ export default function LoginPage({ onLogin }: Props) {
   const login = useStore((s) => s.login);
   const register = useStore((s) => s.register);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!username.trim() || !password.trim()) {
       showToast('请填写用户名和密码', 'error');
       return;
@@ -30,7 +30,7 @@ export default function LoginPage({ onLogin }: Props) {
         showToast('密码至少4位', 'error');
         return;
       }
-      const user = register(username.trim(), password);
+      const user = await register(username.trim(), password);
       if (user) {
         showToast('注册成功！', 'success');
         onLogin();
@@ -38,7 +38,7 @@ export default function LoginPage({ onLogin }: Props) {
         showToast('用户名已存在', 'error');
       }
     } else {
-      const user = login(username.trim(), password);
+      const user = await login(username.trim(), password);
       if (user) {
         showToast(`欢迎，${user.username}！`, 'success');
         onLogin();

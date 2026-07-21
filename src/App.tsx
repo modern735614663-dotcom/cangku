@@ -23,7 +23,7 @@ const TITLES: Record<string, string> = {
 function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const loadFromStorage = useStore((s) => s.loadFromStorage);
+  const loadFromServer = useStore((s) => s.loadFromServer);
   const currentUser = useStore((s) => s.currentUser);
   const hydrated = useStore((s) => s.hydrated);
   const logout = useStore((s) => s.logout);
@@ -31,7 +31,7 @@ function AppShell() {
   const pendingDocs = useStore((s) => s.pendingDocs);
 
   useEffect(() => {
-    loadFromStorage();
+    loadFromServer();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 数据未就绪 → 空白加载（避免登录页闪白）

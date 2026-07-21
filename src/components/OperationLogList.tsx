@@ -6,7 +6,7 @@ import type { OperationLog } from '../types';
 interface Props {
   logs: OperationLog[];
   onLogClick: (log: OperationLog) => void;
-  onRevoke: (logId: string) => boolean;
+  onRevoke: (logId: string) => Promise<boolean>;
 }
 
 export default function OperationLogList({ logs, onLogClick, onRevoke }: Props) {
@@ -50,7 +50,7 @@ export default function OperationLogList({ logs, onLogClick, onRevoke }: Props) 
                 <div className="shrink-0">
                   {confirmId === log.id ? (
                     <div className="flex gap-1">
-                      <button onClick={() => { onRevoke(log.id); setConfirmId(null); showToast('已撤销', 'info'); }}
+                      <button onClick={async () => { const ok = await onRevoke(log.id); setConfirmId(null); showToast(ok ? '已撤销' : '撤销失败', ok ? 'info' : 'error'); }}
                         className="text-xs bg-red-500 text-white px-2 py-1 rounded-lg font-medium">确认撤销</button>
                       <button onClick={() => setConfirmId(null)}
                         className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-lg font-medium">取消</button>

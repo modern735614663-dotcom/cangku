@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { showToast } from '../components/Toast';
-import { COLORS, SIZES, CATEGORIES, INBOUND_SOURCES, WAREHOUSES, WAREHOUSE_LABELS } from '../types';
+import { COLORS, SIZES, CATEGORIES, INBOUND_SOURCES, WAREHOUSES } from '../types';
 import type { WarehouseId, BatchRow } from '../types';
 import { generateId } from '../utils/id';
 
@@ -16,12 +16,8 @@ export default function InboundPage() {
   const navigate = useNavigate();
   const products = useStore((s) => s.products);
   const currentUser = useStore((s) => s.currentUser);
-  const addProduct = useStore((s) => s.addProduct);
-  const addInventory = useStore((s) => s.addInventory);
-  const addLog = useStore((s) => s.addLog);
-  const addPending = useStore((s) => s.addPending);
+  const submitInbound = useStore((s) => s.submitInbound);
   const isAdmin = useStore((s) => s.isAdmin);
-  const save = useStore((s) => s.save);
 
   const [warehouseId, setWarehouseId] = useState<WarehouseId>('warehouse-a');
   const [source, setSource] = useState('采购');
@@ -75,8 +71,7 @@ export default function InboundPage() {
     setShowPasteModal(false); setPasteText('');
   };
 
-  const handleSubmit = () => {
-    const username = currentUser?.username || '未知';
+  const handleSubmit = async () => {
     const validRows = rows.filter((r) => {
       if (r.isNewProduct) return r.newSku && r.color && Object.values(r.sizes).some(v => v > 0);
       return r.productId && Object.values(r.sizes).some(v => v > 0);
@@ -107,43 +102,10 @@ export default function InboundPage() {
     }
     if (items.length === 0) { showToast('请至少填写一个尺码数量', 'error'); return; }
 
-    if (isAdmin()) {
-      let totalQty = 0;
-      for (const item of items) {
-        totalQty += item.quantity;
-        let pid = item.productId;
-        if (item.isNewProduct && item.newProductData) {
-          pid = addProduct(item.newProductData).id;
-        }
-        addInventory(pid, warehouseId, item.quantity);
-      }
-      // 写入入库单
-      const docId = generateId();
-      useStore.setState((s) => ({ inboundDocs: [...s.inboundDocs, { id: docId, source, warehouseId, items, operator: username, timestamp: Date.now() }] }));
-      // 构建日志明细
-      const logItems = items.map((it) => {
-        const p = products.find((pr) => pr.id === it.productId);
-        const nd = it.newProductData;
-        return {
-          sku: nd?.sku || p?.sku || '未知',
-          color: nd?.color || p?.color || '',
-          size: nd?.size || p?.size || '',
-          quantity: it.quantity,
-          price: it.price || p?.price || 0,
-        };
-      });
-      addLog({
-        operator: username, type: 'inbound', documentId: docId,
-        summary: `批量入库 ${validRows.length} 款 ${totalQty} 件（${source}）`,
-        items: logItems,
-        detail: { warehouse: WAREHOUSE_LABELS[warehouseId], quantity: totalQty, sourceOrReason: source },
-      });
-      save();
-      showToast(`入库成功！${totalQty} 件`, 'success');
-    } else {
-      addPending({ type: 'inbound', username, source, warehouseId, items });
-      showToast('已提交审核', 'info');
-    }
+    const error = await submitInbound({ source, warehouseId, items });
+    if (error) { showToast(error, "error"); return; }
+    showToast(isAdmin() ? "入库成功！" : "已提交审核", "success");
+    navigate("/");
     navigate('/');
   };
 

@@ -1,327 +1,238 @@
 import { create } from 'zustand';
-import type {
-  Product, Inventory, OperationLog, InboundDoc, OutboundDoc, TransferDoc, PendingDoc,
-  User, WarehouseId, AppData,
-} from '../types';
-import { generateId } from '../utils/id';
-import { WAREHOUSE_LABELS } from '../types';
+import type { Product, Inventory, OperationLog, TransferDoc, PendingDoc, User, WarehouseId } from '../types';
+import * as api from '../api/endpoints';
+import { getToken, clearToken } from '../api/client';
 
-const STORAGE_KEY = 'warehouse-app-data';
-
-function loadFromLocalStorage(): Partial<AppData> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch { /* ignore */ }
-  return {};
+// ====== 后端数据 → 前端类型转换 ======
+function toProduct(p: any): Product {
+  return { ...p, id: String(p.id), createdAt: p.created_at ? new Date(p.created_at).getTime() : Date.now() };
 }
-
-function persist(s: WarehouseState): void {
-  try {
-    const data: AppData = {
-      products: s.products,
-      inventories: s.inventories,
-      operationLogs: s.operationLogs,
-      inboundDocs: s.inboundDocs,
-      outboundDocs: s.outboundDocs,
-      transferDocs: s.transferDocs,
-      pendingDocs: s.pendingDocs,
-      users: s.users,
-      currentUser: s.currentUser,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch (e) { console.error('保存失败:', e); }
+function toInventory(i: any): Inventory {
+  return { ...i, productId: String(i.product_id || i.productId), warehouseId: i.warehouse_id || i.warehouseId };
 }
-
-const DEFAULT_ADMIN: User = {
-  id: 'admin-001', username: 'admin', password: 'admin123',
-  role: 'admin', createdAt: Date.now(),
-};
-
-interface WarehouseState extends AppData {
+function toLog(l: any): OperationLog {
+  return {
+    ...l, id: String(l.id), documentId: String(l.doc_id || l.id),
+    operator: l.operator, type: l.type, summary: l.summary,
+    timestamp: l.created_at ? new Date(l.created_at).getTime() : Date.now(),
+    revoked: !!l.revoked, revokeInfo: typeof l.revoke_info === 'string' ? JSON.parse(l.revoke_info || 'null') : l.revoke_info,
+    detail: typeof l.detail === 'string' ? JSON.parse(l.detail || '{}') : (l.detail || {}),
+    items: typeof l.items === 'string' ? JSON.parse(l.items || '[]') : (l.items || []),
+  };
+}
+function toPending(p: any): PendingDoc {
+  return {
+    ...p, id: String(p.id), warehouseId: p.warehouse_id,
+    items: typeof p.items === 'string' ? JSON.parse(p.items) : p.items,
+    createdAt: p.created_at ? new Date(p.created_at).getTime() : Date.now(),
+    reviewedAt: p.reviewed_at ? new Date(p.reviewed_at).getTime() : undefined,
+    reviewedBy: p.reviewed_by,
+  };
+}
+interface WarehouseState {
+  products: Product[];
+  inventories: Inventory[];
+  operationLogs: OperationLog[];
+  inboundDocs: any[];
+  outboundDocs: any[];
+  transferDocs: any[];
+  pendingDocs: PendingDoc[];
+  users: User[];
+  currentUser: User | null;
   hydrated: boolean;
-  login: (username: string, password: string) => User | null;
-  register: (username: string, password: string) => User | null;
+
+  // Auth
+  login: (u: string, p: string) => Promise<User | null>;
+  register: (u: string, p: string) => Promise<User | null>;
   logout: () => void;
   isAdmin: () => boolean;
-  loadFromStorage: () => void;
-  save: () => void;
-  addProduct: (p: Omit<Product, 'id' | 'createdAt'>) => Product;
+
+  // Data loading
+  loadFromServer: () => Promise<void>;
+
+  // Product
+  addProduct: (data: any) => Promise<Product>;
   getProduct: (id: string) => Product | undefined;
+
+  // Inventory
   getInventory: (pid: string, wid: WarehouseId) => Inventory | undefined;
   addInventory: (pid: string, wid: WarehouseId, qty: number) => void;
   subInventory: (pid: string, wid: WarehouseId, qty: number) => boolean;
-  addPending: (doc: Omit<PendingDoc, 'id' | 'status' | 'createdAt'>) => PendingDoc;
-  approvePending: (id: string, reviewer: string) => boolean;
-  rejectPending: (id: string, reviewer: string) => void;
-  addLog: (log: Omit<OperationLog, 'id' | 'timestamp' | 'revoked' | 'revokeInfo'>) => void;
-  revokeOperation: (logId: string) => boolean;
-  createTransfer: (params: {
-    fromWarehouse: WarehouseId; toWarehouse: WarehouseId;
-    productId: string; quantity: number;
-  }) => TransferDoc | null;
+
+  // High-level
+  submitInbound: (data: { source: string; warehouseId: WarehouseId; items: any[] }) => Promise<string | null>;
+  submitOutbound: (data: { reason: string; warehouseId: WarehouseId; items: { productId: string; quantity: number }[] }) => Promise<string | null>;
+
+  // Pending
+  addPending: (doc: any) => Promise<PendingDoc | null>;
+  approvePending: (id: string) => Promise<boolean>;
+  rejectPending: (id: string) => Promise<void>;
+
+  // Logs
+  addLog: (log: any) => void;
+  revokeOperation: (logId: string) => Promise<boolean>;
+
+  // Transfer
+  createTransfer: (params: { fromWarehouse: WarehouseId; toWarehouse: WarehouseId; productId: string; quantity: number }) => Promise<TransferDoc | null>;
+
+  // Utility
+  save: () => void;
   clearAll: () => void;
+  refresh: () => Promise<void>;
 }
 
-const emptyState: AppData & { hydrated: boolean } = {
+export const useStore = create<WarehouseState>()((set, get) => ({
   products: [], inventories: [], operationLogs: [], inboundDocs: [],
   outboundDocs: [], transferDocs: [], pendingDocs: [],
-  users: [DEFAULT_ADMIN], currentUser: null, hydrated: false,
-};
+  users: [], currentUser: null, hydrated: false,
 
-export const useStore = create<WarehouseState>()((set, get) => ({
-  ...emptyState,
-
-  login: (username, password) => {
-    const user = get().users.find((u) => u.username === username && u.password === password);
-    if (user) { set({ currentUser: user }); get().save(); return user; }
-    return null;
-  },
-
-  register: (username, password) => {
-    if (get().users.find((u) => u.username === username)) return null;
-    const user: User = { id: generateId(), username, password, role: 'user', createdAt: Date.now() };
-    set({ users: [...get().users, user], currentUser: user });
-    get().save();
+  // ====== 认证 ======
+  login: async (username, password) => {
+    const res = await api.login(username, password);
+    if (res.error) return null;
+    const u = res.data!.user;
+    const user: User = { id: String(u.id), username: u.username, password: '', role: u.role, createdAt: Date.now() };
+    set({ currentUser: user });
     return user;
   },
 
-  logout: () => { set({ currentUser: null }); get().save(); },
+  register: async (username, password) => {
+    const res = await api.register(username, password);
+    if (res.error) return null;
+    const u = res.data!.user;
+    const user: User = { id: String(u.id), username: u.username, password: '', role: u.role, createdAt: Date.now() };
+    set({ currentUser: user });
+    return user;
+  },
+
+  logout: () => {
+    api.logout();
+    set({ currentUser: null });
+  },
 
   isAdmin: () => get().currentUser?.role === 'admin',
 
-  loadFromStorage: () => {
-    const data = loadFromLocalStorage();
-    set({
-      products: data.products ?? [],
-      inventories: data.inventories ?? [],
-      operationLogs: data.operationLogs ?? [],
-      inboundDocs: data.inboundDocs ?? [],
-      outboundDocs: data.outboundDocs ?? [],
-      transferDocs: data.transferDocs ?? [],
-      pendingDocs: data.pendingDocs ?? [],
-      users: data.users?.length ? data.users : [DEFAULT_ADMIN],
-      currentUser: data.currentUser ?? null,
-      hydrated: true,
-    });
+  // ====== 数据加载 ======
+  loadFromServer: async () => {
+    if (!getToken()) {
+      set({ hydrated: true });
+      return;
+    }
+    // 验证 token 有效性
+    const meRes = await api.getMe();
+    if (meRes.error) {
+      clearToken();
+      set({ hydrated: true });
+      return;
+    }
+    const u = meRes.data!.user;
+    const user: User = { id: String(u.id), username: u.username, password: '', role: u.role, createdAt: Date.now() };
+    set({ currentUser: user });
+
+    // 并行加载所有数据
+    const [prodRes, invRes, logRes, pendRes] = await Promise.all([
+      api.fetchProducts(), api.fetchInventory(), api.fetchLogs(), api.fetchPending(),
+    ]);
+
+    const products = prodRes.data?.map(toProduct) || [];
+    const inventories = invRes.data?.map(toInventory) || [];
+    const operationLogs = logRes.data?.map(toLog) || [];
+    const pendingDocs = pendRes.data?.map(toPending) || [];
+
+    set({ products, inventories, operationLogs, pendingDocs, hydrated: true });
   },
 
-  save: () => persist(get()),
+  refresh: async () => {
+    const [prodRes, invRes, logRes, pendRes] = await Promise.all([
+      api.fetchProducts(), api.fetchInventory(), api.fetchLogs(), api.fetchPending(),
+    ]);
+    const products = prodRes.data?.map(toProduct) || [];
+    const inventories = invRes.data?.map(toInventory) || [];
+    const operationLogs = logRes.data?.map(toLog) || [];
+    const pendingDocs = pendRes.data?.map(toPending) || [];
+    set({ products, inventories, operationLogs, pendingDocs });
+  },
 
-  addProduct: (data) => {
-    const product: Product = { ...data, id: generateId(), createdAt: Date.now() };
-    set((s) => ({ products: [...s.products, product] }));
-    setTimeout(() => get().save(), 0);
+  // ====== 货品 ======
+  addProduct: async (data) => {
+    const res = await api.createProduct(data);
+    if (res.error) throw new Error(res.error);
+    const product = toProduct(res.data);
+    set(s => ({ products: [...s.products, product] }));
     return product;
   },
 
-  getProduct: (id) => get().products.find((p) => p.id === id),
+  getProduct: (id) => get().products.find(p => p.id === id),
 
-  getInventory: (pid, wid) =>
-    get().inventories.find((i) => i.productId === pid && i.warehouseId === wid),
+  // ====== 库存（本地缓存，操作后刷新） ======
+  getInventory: (pid, wid) => get().inventories.find(i => i.productId === pid && i.warehouseId === wid),
+  addInventory: () => {}, // 由后端处理，前端只刷新
+  subInventory: () => true, // 同上
 
-  addInventory: (pid, wid, qty) => {
-    set((s) => {
-      const ex = s.inventories.find((i) => i.productId === pid && i.warehouseId === wid);
-      if (ex) {
-        return { inventories: s.inventories.map((i) =>
-          i.productId === pid && i.warehouseId === wid ? { ...i, quantity: i.quantity + qty } : i) };
-      }
-      return { inventories: [...s.inventories, { warehouseId: wid, productId: pid, quantity: qty }] };
+  // ====== 上层操作 ======
+  submitInbound: async (data: { source: string; warehouseId: WarehouseId; items: any[] }) => {
+    const res = await api.submitInbound({
+      source: data.source, warehouse_id: data.warehouseId,
+      items: data.items.map(i => ({
+        productId: i.productId, quantity: i.quantity, price: i.price,
+        isNewProduct: i.isNewProduct, newProductData: i.newProductData,
+      })),
     });
+    if (res.error) return res.error;
+    await get().refresh();
+    return null;
+  },
+  submitOutbound: async (data: { reason: string; warehouseId: WarehouseId; items: { productId: string; quantity: number }[] }) => {
+    const res = await api.submitOutbound({
+      reason: data.reason, warehouse_id: data.warehouseId,
+      items: data.items.map(i => ({ productId: Number(i.productId), quantity: i.quantity })),
+    });
+    if (res.error) return res.error;
+    await get().refresh();
+    return null;
   },
 
-  subInventory: (pid, wid, qty) => {
-    const inv = get().getInventory(pid, wid);
-    if (!inv || inv.quantity < qty) return false;
-    set((s) => ({
-      inventories: s.inventories.map((i) =>
-        i.productId === pid && i.warehouseId === wid ? { ...i, quantity: i.quantity - qty } : i),
-    }));
+  // ====== 待审核 ======
+  addPending: async () => {
+    await get().refresh();
+    return null;
+  },
+
+  approvePending: async (id) => {
+    const res = await api.approvePending(Number(id));
+    if (res.error) return false;
+    await get().refresh();
     return true;
   },
 
-  addPending: (doc) => {
-    const pending: PendingDoc = { ...doc, id: generateId(), status: 'pending', createdAt: Date.now() };
-    set((s) => ({ pendingDocs: [...s.pendingDocs, pending] }));
-    setTimeout(() => get().save(), 0);
-    return pending;
+  rejectPending: async (id) => {
+    await api.rejectPending(Number(id));
+    await get().refresh();
   },
 
-  approvePending: (id, reviewer) => {
+  // ====== 日志 ======
+  addLog: () => {}, // 由后端生成
+
+  revokeOperation: async (logId) => {
     if (!get().isAdmin()) return false;
-    const pending = get().pendingDocs.find((p) => p.id === id);
-    if (!pending || pending.status !== 'pending') return false;
-    const now = Date.now();
-
-    // 深拷贝 items，避免直接修改 Zustand state
-    const items = pending.items.map((item) => ({ ...item }));
-
-    if (pending.type === 'inbound') {
-      // 处理全新款（不变更原 state 中的 items）
-      for (const item of items) {
-        if (item.isNewProduct && item.newProductData) {
-          const prod = get().addProduct(item.newProductData);
-          item.productId = prod.id;
-          item.isNewProduct = false;
-        }
-        get().addInventory(item.productId, pending.warehouseId, item.quantity);
-      }
-      const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-
-      // 写入入库单（撤销功能需要）
-      const docId = generateId();
-      const doc: InboundDoc = {
-        id: docId, source: pending.source || '未知', warehouseId: pending.warehouseId,
-        items, operator: pending.username, timestamp: now,
-      };
-      set((s) => ({ inboundDocs: [...s.inboundDocs, doc] }));
-
-      // 构建日志明细
-      const logItems = items.map((item) => {
-        const p = get().getProduct(item.productId);
-        return { sku: p?.sku || '未知', color: p?.color || '', size: p?.size || '',
-                 quantity: item.quantity, price: item.price || p?.price || 0 };
-      });
-      get().addLog({
-        operator: pending.username, type: 'inbound', documentId: docId,
-        summary: `入库 ${totalQty} 件（${pending.source}）`,
-        items: logItems,
-        detail: { warehouse: WAREHOUSE_LABELS[pending.warehouseId], quantity: totalQty, sourceOrReason: pending.source },
-      });
-    } else {
-      // 出库：先校验所有库存充足
-      for (const item of items) {
-        const inv = get().getInventory(item.productId, pending.warehouseId);
-        if (!inv || inv.quantity < item.quantity) return false;
-      }
-      // 全部通过后再扣减
-      for (const item of items) {
-        get().subInventory(item.productId, pending.warehouseId, item.quantity);
-      }
-      const totalQty = items.reduce((s, i) => s + i.quantity, 0);
-
-      // 写入出库单（撤销功能需要）
-      const docId = generateId();
-      const doc: OutboundDoc = {
-        id: docId, reason: pending.reason || '未知', warehouseId: pending.warehouseId,
-        items, operator: pending.username, timestamp: now,
-      };
-      set((s) => ({ outboundDocs: [...s.outboundDocs, doc] }));
-
-      // 构建日志明细
-      const logItems = items.map((item) => {
-        const p = get().getProduct(item.productId);
-        return { sku: p?.sku || '未知', color: p?.color || '', size: p?.size || '',
-                 quantity: item.quantity, price: p?.price || 0 };
-      });
-      get().addLog({
-        operator: pending.username, type: 'outbound', documentId: docId,
-        summary: `出库 ${totalQty} 件（${pending.reason}）`,
-        items: logItems,
-        detail: { warehouse: WAREHOUSE_LABELS[pending.warehouseId], quantity: totalQty, sourceOrReason: pending.reason },
-      });
-    }
-
-    set((s) => ({
-      pendingDocs: s.pendingDocs.map((p) =>
-        p.id === id ? { ...p, status: 'approved', reviewedAt: now, reviewedBy: reviewer } : p),
-    }));
-    setTimeout(() => get().save(), 0);
+    const res = await api.revokeOperation(Number(logId));
+    if (res.error) return false;
+    await get().refresh();
     return true;
   },
 
-  rejectPending: (id, reviewer) => {
-    if (!get().isAdmin()) return;
-    const pending = get().pendingDocs.find((p) => p.id === id);
-    if (!pending || pending.status !== 'pending') return;
-    set((s) => ({
-      pendingDocs: s.pendingDocs.map((p) =>
-        p.id === id ? { ...p, status: 'rejected', reviewedAt: Date.now(), reviewedBy: reviewer } : p),
-    }));
-    setTimeout(() => get().save(), 0);
-  },
-
-  addLog: (log) => {
-    const entry: OperationLog = { ...log, id: generateId(), timestamp: Date.now() };
-    set((s) => ({ operationLogs: [entry, ...s.operationLogs] }));
-  },
-
-  revokeOperation: (logId) => {
-    if (!get().isAdmin()) return false;
-    const log = get().operationLogs.find((l) => l.id === logId);
-    if (!log || log.revoked) return false;
-
-    const user = get().currentUser;
-    const username = user?.username || '管理员';
-    const now = Date.now();
-
-    if (log.type === 'inbound') {
-      const doc = get().inboundDocs.find((d) => d.id === log.documentId);
-      if (!doc) return false;
-      for (const item of doc.items) {
-        get().addInventory(item.productId, doc.warehouseId, -(item.quantity || 0));
-      }
-    } else if (log.type === 'outbound') {
-      const doc = get().outboundDocs.find((d) => d.id === log.documentId);
-      if (!doc) return false;
-      for (const item of doc.items) {
-        get().addInventory(item.productId, doc.warehouseId, item.quantity);
-      }
-    } else if (log.type === 'transfer') {
-      const doc = get().transferDocs.find((d) => d.id === log.documentId);
-      if (!doc) return false;
-      // 先校验目标仓库存是否充足
-      const inv = get().getInventory(doc.productId, doc.toWarehouse);
-      if (!inv || inv.quantity < doc.quantity) return false;
-      // 执行回退
-      get().subInventory(doc.productId, doc.toWarehouse, doc.quantity);
-      get().addInventory(doc.productId, doc.fromWarehouse, doc.quantity);
-    }
-
-    set((s) => ({
-      operationLogs: s.operationLogs.map((l) =>
-        l.id === logId ? { ...l, revoked: true, revokeInfo: { operator: username, timestamp: now } } : l
-      ),
-    }));
-
-    get().addLog({
-      operator: username, type: log.type, documentId: log.documentId,
-      summary: `撤销了 ${log.operator} 的${log.summary}`,
-      items: log.items,
-      detail: { ...log.detail },
+  // ====== 转仓 ======
+  createTransfer: async ({ fromWarehouse, toWarehouse, productId, quantity }) => {
+    const res = await api.submitTransfer({
+      from_warehouse: fromWarehouse, to_warehouse: toWarehouse,
+      product_id: Number(productId), quantity,
     });
-
-    setTimeout(() => get().save(), 0);
-    return true;
+    if (res.error) return null;
+    await get().refresh();
+    return { id: String(res.data?.docId || ''), fromWarehouse, toWarehouse, productId, quantity, operator: get().currentUser?.username || '', timestamp: Date.now() };
   },
 
-  createTransfer: ({ fromWarehouse, toWarehouse, productId, quantity }) => {
-    const product = get().getProduct(productId);
-    if (!product) return null;
-    if (!get().subInventory(productId, fromWarehouse, quantity)) return null;
-    get().addInventory(productId, toWarehouse, quantity);
-
-    const user = get().currentUser;
-    const doc: TransferDoc = {
-      id: generateId(), fromWarehouse, toWarehouse, productId, quantity,
-      operator: user?.username || '未知', timestamp: Date.now(),
-    };
-    set((s) => ({ transferDocs: [...s.transferDocs, doc] }));
-    get().addLog({
-      operator: user?.username || '未知', type: 'transfer', documentId: doc.id,
-      summary: `转仓 ${product.sku} ${quantity}件 ${WAREHOUSE_LABELS[fromWarehouse]}→${WAREHOUSE_LABELS[toWarehouse]}`,
-      detail: {
-        warehouse: '', sku: product.sku, color: product.color, size: product.size,
-        quantity, fromWarehouse: WAREHOUSE_LABELS[fromWarehouse], toWarehouse: WAREHOUSE_LABELS[toWarehouse],
-      },
-    });
-    setTimeout(() => get().save(), 0);
-    return doc;
-  },
-
-  clearAll: () => {
-    set({ ...emptyState, users: [DEFAULT_ADMIN], currentUser: null });
-    localStorage.removeItem(STORAGE_KEY);
-  },
+  // ====== 工具 ======
+  save: () => {}, // 后端自动保存
+  clearAll: () => { api.logout(); set({ currentUser: null, hydrated: false }); },
 }));

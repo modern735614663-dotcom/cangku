@@ -6,14 +6,13 @@ import { formatTime } from '../utils/date';
 export default function ReviewPage() {
   const pendingDocs = useStore((s) => s.pendingDocs);
   const products = useStore((s) => s.products);
-  const currentUser = useStore((s) => s.currentUser);
   const approvePending = useStore((s) => s.approvePending);
   const rejectPending = useStore((s) => s.rejectPending);
 
   const getProduct = (pid: string) => products.find((p) => p.id === pid);
 
-  const handleApprove = (id: string) => {
-    const ok = approvePending(id, currentUser?.username || 'admin');
+  const handleApprove = async (id: string) => {
+    const ok = await approvePending(id);
     if (ok) {
       showToast('已通过审核', 'success');
     } else {
@@ -21,8 +20,8 @@ export default function ReviewPage() {
     }
   };
 
-  const handleReject = (id: string) => {
-    rejectPending(id, currentUser?.username || 'admin');
+  const handleReject = async (id: string) => {
+    rejectPending(id);
     showToast('已驳回', 'info');
   };
 
