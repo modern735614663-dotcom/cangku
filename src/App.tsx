@@ -57,11 +57,11 @@ function AppShell() {
   const pendingCount = pendingDocs.filter((d) => d.status === 'pending').length;
 
   return (
-    <div className="max-w-lg mx-auto min-h-screen bg-gray-50 relative">
+    <div className="w-full max-w-lg mx-auto min-h-screen bg-gray-50 relative overflow-x-hidden">
       {/* 顶部标题栏 */}
       <header className="sticky top-0 z-40 bg-slate-800 px-4 py-3 text-white shadow-md">
         <div className="flex items-center justify-between">
-          <h1 className="text-lg font-semibold text-white">{title}</h1>
+          <h1 className="text-lg font-semibold text-white truncate">{title}</h1>
           <div className="flex items-center gap-2">
             {isAdmin() && pendingCount > 0 && (
               <button onClick={() => navigate('/review')}
