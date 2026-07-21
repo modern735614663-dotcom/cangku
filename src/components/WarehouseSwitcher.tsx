@@ -19,7 +19,7 @@ export default function WarehouseSwitcher({ value, onChange }: Props) {
         <button
           key={opt.key}
           onClick={() => onChange(opt.key)}
-          className={`flex-1 py-1.5 text-sm font-medium rounded-md transition-all ${
+          className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
             value === opt.key
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-500'

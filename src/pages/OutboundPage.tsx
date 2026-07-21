@@ -161,11 +161,27 @@ export default function OutboundPage() {
                 <select value={row.productId} onChange={(e) => handleProductSelect(row, e.target.value)}
                   className="flex-1 px-1 py-1 bg-white rounded border border-gray-200 text-xs outline-none">
                   <option value="">选择款号...</option>
-                  {availableProducts.map((p) => (
-                    <option key={p.id} value={p.id}>{p.sku} {p.color}/{p.size} 库存{p.stock}</option>
-                  ))}
+                  {/* 按款号+颜色去重，选款不选码 */}
+                  {(() => {
+                    const seen = new Set<string>();
+                    const deduped: Array<{ id: string; sku: string; color: string; totalStock: number }> = [];
+                    for (const p of availableProducts) {
+                      const key = `${p.sku}|${p.color}`;
+                      if (seen.has(key)) {
+                        // 累加同款同色库存
+                        const existing = deduped.find(d => d.sku === p.sku && d.color === p.color);
+                        if (existing) existing.totalStock += p.stock;
+                      } else {
+                        seen.add(key);
+                        deduped.push({ id: p.id, sku: p.sku, color: p.color, totalStock: p.stock });
+                      }
+                    }
+                    return deduped.map((d) => (
+                      <option key={`${d.sku}|${d.color}`} value={d.id}>{d.sku} {d.color} 总库存{d.totalStock}</option>
+                    ));
+                  })()}
                 </select>
-                <span className="text-xs text-gray-500">{prod?.color || ''}</span>
+                <span className="text-xs text-gray-500 shrink-0">{prod?.color || ''}</span>
                 <button onClick={() => deleteRow(row.id)} className="text-red-400 text-lg shrink-0">&times;</button>
               </div>
               <div className="px-3 py-2 grid grid-cols-3 gap-1">
