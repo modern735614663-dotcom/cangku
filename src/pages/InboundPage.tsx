@@ -160,7 +160,7 @@ export default function InboundPage() {
           {WAREHOUSES.map((w) => (
             <button key={w} onClick={() => setWarehouseId(w)}
               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${warehouseId === w ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-            >{WAREHOUSE_LABELS[w]}</button>
+            >{w === 'warehouse-a' ? 'TK仓' : '1688仓'}</button>
           ))}
         </div>
         <div className="flex flex-wrap gap-1.5">

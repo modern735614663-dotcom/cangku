@@ -1,5 +1,4 @@
 import type { WarehouseId } from '../types';
-import { WAREHOUSE_LABELS } from '../types';
 
 interface Props {
   value: 'all' | WarehouseId;
@@ -9,8 +8,8 @@ interface Props {
 export default function WarehouseSwitcher({ value, onChange }: Props) {
   const options: Array<{ key: 'all' | WarehouseId; label: string }> = [
     { key: 'all', label: '合计' },
-    { key: 'warehouse-a', label: WAREHOUSE_LABELS['warehouse-a'] },
-    { key: 'warehouse-b', label: WAREHOUSE_LABELS['warehouse-b'] },
+    { key: 'warehouse-a', label: 'TK仓' },
+    { key: 'warehouse-b', label: '1688仓' },
   ];
 
   return (

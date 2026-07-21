@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { useStore } from '../store';
 import { mergeBySkuColor, calcTotalValue } from '../utils/stats';
-import { WAREHOUSE_LABELS, CATEGORIES, COLORS, SIZES } from '../types';
+import { CATEGORIES, COLORS, SIZES } from '../types';
 import type { WarehouseId, Product } from '../types';
 
 const MAX_IMG = 200;
@@ -109,8 +109,8 @@ export default function InventoryPage() {
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {[
             { key: 'all', label: '合计' },
-            { key: 'warehouse-a', label: WAREHOUSE_LABELS['warehouse-a'] },
-            { key: 'warehouse-b', label: WAREHOUSE_LABELS['warehouse-b'] },
+            { key: 'warehouse-a', label: 'TK仓' },
+            { key: 'warehouse-b', label: '1688仓' },
           ].map((opt) => (
             <button key={opt.key} onClick={() => setWarehouse(opt.key as 'all' | WarehouseId)}
               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${warehouse === opt.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}

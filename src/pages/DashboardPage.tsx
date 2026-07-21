@@ -8,7 +8,6 @@ import {
   calcTotalStock, calcStockByWarehouse, calcTotalOutbound,
   calcOutboundValue, calcTrendComparison, calcTotalValue, calcTotalInbound,
 } from '../utils/stats';
-import { WAREHOUSE_LABELS } from '../types';
 import type { WarehouseId, Period, ChartGranularity, OperationLog } from '../types';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -82,12 +81,12 @@ export default function DashboardPage() {
   );
 
   const stockLabel = warehouse === 'all'
-    ? `${WAREHOUSE_LABELS['warehouse-a']} ${stockByWarehouse['warehouse-a']} | ${WAREHOUSE_LABELS['warehouse-b']} ${stockByWarehouse['warehouse-b']}`
-    : `${WAREHOUSE_LABELS[warehouse]} 库存`;
+    ? `TK仓 ${stockByWarehouse['warehouse-a']} | 1688仓 ${stockByWarehouse['warehouse-b']}`
+    : `${warehouse === 'warehouse-a' ? 'TK仓' : '1688仓'} 库存`;
 
   const valueLabel = warehouse === 'all'
-    ? `${WAREHOUSE_LABELS['warehouse-a']} ¥${valueByWarehouse['warehouse-a'].toLocaleString()} | ${WAREHOUSE_LABELS['warehouse-b']} ¥${valueByWarehouse['warehouse-b'].toLocaleString()}`
-    : `${WAREHOUSE_LABELS[warehouse]} 价值`;
+    ? `TK仓 ¥${valueByWarehouse['warehouse-a'].toLocaleString()} | 1688仓 ¥${valueByWarehouse['warehouse-b'].toLocaleString()}`
+    : `${warehouse === 'warehouse-a' ? 'TK仓' : '1688仓'} 价值`;
 
   return (
     <div className="pb-20 space-y-4">

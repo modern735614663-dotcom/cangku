@@ -84,14 +84,14 @@ export default function TransferPage() {
           {WAREHOUSES.map((w) => (
             <button key={w} onClick={() => { setFromWarehouse(w); setToWarehouse(w === 'warehouse-a' ? 'warehouse-b' : 'warehouse-a'); setRows([emptyRow()]); }}
               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${fromWarehouse === w ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-            >{WAREHOUSE_LABELS[w]}（出）</button>
+            >{w === 'warehouse-a' ? 'TK仓' : '1688仓'}（出）</button>
           ))}
         </div>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {WAREHOUSES.map((w) => (
             <button key={w} onClick={() => setToWarehouse(w)} disabled={w === fromWarehouse}
               className={`flex-1 py-1.5 text-xs font-medium rounded-md transition-all ${w === fromWarehouse ? 'bg-gray-200 text-gray-300 cursor-not-allowed' : toWarehouse === w ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}
-            >{WAREHOUSE_LABELS[w]}（入）</button>
+            >{w === 'warehouse-a' ? 'TK仓' : '1688仓'}（入）</button>
           ))}
         </div>
         <div className="bg-purple-50 rounded-xl p-2 text-xs text-purple-700 text-center">
