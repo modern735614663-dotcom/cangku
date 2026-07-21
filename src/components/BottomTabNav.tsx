@@ -35,8 +35,8 @@ export default function BottomTabNav() {
           );
         })}
 
-        {/* 管理员审核入口 */}
-        {isAdmin() && pendingCount > 0 && (
+        {/* 管理员审核入口（始终显示） */}
+        {isAdmin() && (
           <NavLink
             to="/review"
             className={`flex flex-col items-center justify-center flex-1 h-full transition-colors relative ${

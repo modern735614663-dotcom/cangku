@@ -61,12 +61,13 @@ export default function InboundPage() {
       for (let i = 0; i < sizeList.length; i++) {
         sizes[sizeList[i]] = parseInt(cols[2 + i]) || 0;
       }
+      const pasteColor = cols[1]?.trim() || '';
       const price = parseFloat(cols[cols.length - 1]) || 0;
       const existing = products.find((p) => p.sku.toLowerCase() === sku.toLowerCase());
       if (existing) {
-        newRows.push({ id: generateId(), productId: existing.id, color: existing.color, sizes: { ...sizes }, price: price || existing.price });
+        newRows.push({ id: generateId(), productId: existing.id, color: pasteColor || existing.color, sizes: { ...sizes }, price: price || existing.price });
       } else {
-        newRows.push({ id: generateId(), productId: '', color: '', sizes: { ...sizes }, price, isNewProduct: true, newSku: sku });
+        newRows.push({ id: generateId(), productId: '', color: pasteColor, sizes: { ...sizes }, price, isNewProduct: true, newSku: sku });
       }
     }
     if (newRows.length > 0) { setRows((prev) => [...prev, ...newRows]); showToast(`已导入 ${newRows.length} 行`, 'success'); }
@@ -88,11 +89,19 @@ export default function InboundPage() {
       const finalColor = row.color === '其他' ? (row.customColor || '其他') : row.color;
       for (const [size, qty] of Object.entries(row.sizes)) {
         if (qty <= 0) continue;
+        const finalSize = size === '其他' && row.customSize ? row.customSize : size;
         if (row.isNewProduct && row.newSku) {
           items.push({ productId: '', quantity: qty, price: row.price, isNewProduct: true,
-            newProductData: { sku: row.newSku, category: row.newCategory || '其他', color: finalColor, size, price: row.price, image: row.newImage } });
+            newProductData: { sku: row.newSku, category: row.newCategory || '其他', color: finalColor, size: finalSize, price: row.price, image: row.newImage } });
         } else {
-          items.push({ productId: row.productId, quantity: qty, price: row.price });
+          // 已有货品按尺码查找对应的 productId
+          const prod = products.find((p) => p.id === row.productId);
+          if (prod) {
+            const sp = products.find((p) => p.sku === prod.sku && p.color === finalColor && p.size === finalSize);
+            items.push({ productId: sp?.id || row.productId, quantity: qty, price: row.price });
+          } else {
+            items.push({ productId: row.productId, quantity: qty, price: row.price });
+          }
         }
       }
     }
@@ -180,13 +189,13 @@ export default function InboundPage() {
                     placeholder="输入新款号" className="flex-1 px-2 py-1 bg-yellow-50 rounded border border-yellow-200 text-xs outline-none" />
                 ) : (
                   <div className="flex-1 relative">
-                  <input type="text" value={(row as any).search || ''}
-                    onChange={(e) => updateRow(row.id, { search: e.target.value } as any)}
+                  <input type="text" value={row.search || ''}
+                    onChange={(e) => updateRow(row.id, { search: e.target.value })}
                     placeholder="🔍 搜索款号" className="w-full px-1 py-1 bg-white rounded border border-gray-200 text-xs outline-none" />
-                  {((row as any).search?.length > 0) && (
+                  {(row.search && row.search.length > 0) && (
                     <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 max-h-32 overflow-y-auto">
-                      {products.filter((p) => p.sku.toLowerCase().includes((row as any).search.toLowerCase()) || p.color.includes((row as any).search)).slice(0, 20).map((p) => (
-                        <button key={p.id} type="button" onClick={() => { handleProductSelect(row, p.id); updateRow(row.id, { search: '' } as any); }}
+                      {products.filter((p) => p.sku.toLowerCase().includes(row.search!.toLowerCase()) || p.color.includes(row.search!)).slice(0, 20).map((p) => (
+                        <button key={p.id} type="button" onClick={() => { handleProductSelect(row, p.id); updateRow(row.id, { search: '' }); }}
                           className="w-full px-2 py-1.5 text-left text-xs hover:bg-gray-50 border-b border-gray-50 last:border-0">
                           {p.sku} <span className="text-gray-400">{p.color}/{p.size} ¥{p.price}</span>
                         </button>
@@ -279,8 +288,8 @@ export default function InboundPage() {
                         onChange={(e) => updateSize(row.id, size, Math.max(0, parseInt(e.target.value) || 0))}
                         className="flex-1 px-1 py-1 bg-gray-50 rounded border border-gray-100 text-xs outline-none text-center min-w-0" min={0} />
                       {size === '其他' && val > 0 && (
-                        <input type="text" value={(row as any).customSize || ''}
-                          onChange={(e) => updateRow(row.id, { customSize: e.target.value } as any)}
+                        <input type="text" value={row.customSize || ''}
+                          onChange={(e) => updateRow(row.id, { customSize: e.target.value })}
                           placeholder="码名" className="w-10 px-1 py-1 bg-yellow-50 rounded border border-yellow-200 text-[10px] outline-none" />
                       )}
                     </div>
@@ -322,10 +331,10 @@ export default function InboundPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowPasteModal(false)} />
           <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 space-y-3 animate-slide-up">
             <h3 className="font-semibold">粘贴导入</h3>
-            <p className="text-xs text-gray-400">款号\t颜色\t各尺码数量(8列)\t单价</p>
+            <p className="text-xs text-gray-400">款号\t颜色\t各尺码数量(6列: S/M/L/XL/XXL/其他)\t单价</p>
             <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)}
               className="w-full h-32 px-3 py-2 bg-gray-50 rounded-xl border text-xs outline-none resize-none"
-              placeholder={"SKU-001\t黑色\t5\t10\t0\t20\t0\t0\t0\t0\t128"} />
+              placeholder={"SKU-001\t黑色\t5\t10\t0\t20\t0\t0\t128"} />
             <div className="flex gap-2">
               <button onClick={() => { setShowPasteModal(false); setPasteText(''); }}
                 className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">取消</button>

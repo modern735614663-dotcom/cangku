@@ -66,8 +66,10 @@ export interface BatchRow {
   newSku?: string;
   newCategory?: string;
   newImage?: string;
-  // 颜色自定义
+  // 自定义
   customColor?: string;
+  customSize?: string;
+  search?: string;
 }
 
 /** 库存合并显示行 */

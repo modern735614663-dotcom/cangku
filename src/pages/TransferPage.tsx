@@ -50,7 +50,8 @@ export default function TransferPage() {
     const validRows = rows.filter((r) => r.productId && Object.values(r.sizes).some(v => v > 0));
     if (validRows.length === 0) { showToast('请至少填写一个尺码', 'error'); return; }
 
-    let ok = 0;
+    // 第一遍：全部校验
+    const transfers: Array<{ productId: string; quantity: number }> = [];
     for (const row of validRows) {
       const prod = products.find((p) => p.id === row.productId);
       if (!prod) continue;
@@ -59,13 +60,19 @@ export default function TransferPage() {
         const sp = products.find((p) => p.sku === prod.sku && p.color === prod.color && p.size === size);
         if (!sp) continue;
         const stock = getStockForSize(row.productId, size);
-        if (qty > stock) { showToast(`${prod.sku} ${size} 库存不足`, 'error'); return; }
-        const r = createTransfer({ fromWarehouse, toWarehouse, productId: sp.id, quantity: qty });
-        if (r) ok++;
+        if (qty > stock) { showToast(`${prod.sku} ${size} 库存不足（库存: ${stock}）`, 'error'); return; }
+        transfers.push({ productId: sp.id, quantity: qty });
       }
     }
-    if (ok > 0) { showToast(`转仓成功！${ok} 项`, 'success'); navigate('/'); }
-    else { showToast('转仓失败', 'error'); }
+    if (transfers.length === 0) { showToast('无有效转仓项', 'error'); return; }
+    // 第二遍：全部执行
+    let ok = 0;
+    for (const t of transfers) {
+      const r = createTransfer({ fromWarehouse, toWarehouse, productId: t.productId, quantity: t.quantity });
+      if (r) ok++;
+    }
+    showToast(`转仓成功！${ok} 项`, 'success');
+    navigate('/');
   };
 
   const getRowTotalQty = (row: BatchRow) => Object.values(row.sizes).reduce((s, v) => s + v, 0);

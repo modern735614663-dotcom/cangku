@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import InboundPage from './pages/InboundPage';
@@ -25,6 +25,7 @@ function AppShell() {
   const navigate = useNavigate();
   const loadFromStorage = useStore((s) => s.loadFromStorage);
   const currentUser = useStore((s) => s.currentUser);
+  const hydrated = useStore((s) => s.hydrated);
   const logout = useStore((s) => s.logout);
   const isAdmin = useStore((s) => s.isAdmin);
   const pendingDocs = useStore((s) => s.pendingDocs);
@@ -32,6 +33,15 @@ function AppShell() {
   useEffect(() => {
     loadFromStorage();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 数据未就绪 → 空白加载（避免登录页闪白）
+  if (!hydrated) {
+    return (
+      <div className="min-h-screen bg-slate-800 flex items-center justify-center">
+        <div className="text-white text-lg">加载中...</div>
+      </div>
+    );
+  }
 
   // 未登录 → 登录页
   if (!currentUser) {
@@ -74,7 +84,7 @@ function AppShell() {
           <Route path="/inbound" element={<InboundPage />} />
           <Route path="/outbound" element={<OutboundPage />} />
           <Route path="/transfer" element={<TransferPage />} />
-          <Route path="/review" element={isAdmin() ? <ReviewPage /> : <DashboardPage />} />
+          <Route path="/review" element={isAdmin() ? <ReviewPage /> : <Navigate to="/" replace />} />
         </Routes>
       </main>
 

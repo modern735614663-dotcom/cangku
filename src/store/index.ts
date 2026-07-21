@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type {
-  Product, Inventory, OperationLog, TransferDoc, PendingDoc,
+  Product, Inventory, OperationLog, InboundDoc, OutboundDoc, TransferDoc, PendingDoc,
   User, WarehouseId, AppData,
 } from '../types';
 import { generateId } from '../utils/id';
@@ -39,6 +39,7 @@ const DEFAULT_ADMIN: User = {
 };
 
 interface WarehouseState extends AppData {
+  hydrated: boolean;
   login: (username: string, password: string) => User | null;
   register: (username: string, password: string) => User | null;
   logout: () => void;
@@ -62,10 +63,10 @@ interface WarehouseState extends AppData {
   clearAll: () => void;
 }
 
-const emptyState: AppData = {
+const emptyState: AppData & { hydrated: boolean } = {
   products: [], inventories: [], operationLogs: [], inboundDocs: [],
   outboundDocs: [], transferDocs: [], pendingDocs: [],
-  users: [DEFAULT_ADMIN], currentUser: null,
+  users: [DEFAULT_ADMIN], currentUser: null, hydrated: false,
 };
 
 export const useStore = create<WarehouseState>()((set, get) => ({
@@ -101,6 +102,7 @@ export const useStore = create<WarehouseState>()((set, get) => ({
       pendingDocs: data.pendingDocs ?? [],
       users: data.users?.length ? data.users : [DEFAULT_ADMIN],
       currentUser: data.currentUser ?? null,
+      hydrated: true,
     });
   },
 
@@ -147,12 +149,17 @@ export const useStore = create<WarehouseState>()((set, get) => ({
   },
 
   approvePending: (id, reviewer) => {
+    if (!get().isAdmin()) return false;
     const pending = get().pendingDocs.find((p) => p.id === id);
     if (!pending || pending.status !== 'pending') return false;
     const now = Date.now();
 
+    // 深拷贝 items，避免直接修改 Zustand state
+    const items = pending.items.map((item) => ({ ...item }));
+
     if (pending.type === 'inbound') {
-      for (const item of pending.items) {
+      // 处理全新款（不变更原 state 中的 items）
+      for (const item of items) {
         if (item.isNewProduct && item.newProductData) {
           const prod = get().addProduct(item.newProductData);
           item.productId = prod.id;
@@ -160,40 +167,59 @@ export const useStore = create<WarehouseState>()((set, get) => ({
         }
         get().addInventory(item.productId, pending.warehouseId, item.quantity);
       }
-      const totalQty = pending.items.reduce((s, i) => s + i.quantity, 0);
-      const firstItem = pending.items[0];
-      const prod = firstItem ? get().getProduct(firstItem.productId) : undefined;
-      const isNew = firstItem?.isNewProduct && firstItem?.newProductData;
+      const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+
+      // 写入入库单（撤销功能需要）
+      const docId = generateId();
+      const doc: InboundDoc = {
+        id: docId, source: pending.source || '未知', warehouseId: pending.warehouseId,
+        items, operator: pending.username, timestamp: now,
+      };
+      set((s) => ({ inboundDocs: [...s.inboundDocs, doc] }));
+
+      // 构建日志明细
+      const logItems = items.map((item) => {
+        const p = get().getProduct(item.productId);
+        return { sku: p?.sku || '未知', color: p?.color || '', size: p?.size || '',
+                 quantity: item.quantity, price: item.price || p?.price || 0 };
+      });
       get().addLog({
-        operator: pending.username, type: 'inbound', documentId: generateId(),
+        operator: pending.username, type: 'inbound', documentId: docId,
         summary: `入库 ${totalQty} 件（${pending.source}）`,
-        detail: {
-          warehouse: WAREHOUSE_LABELS[pending.warehouseId],
-          quantity: totalQty,
-          sourceOrReason: pending.source,
-          sku: isNew ? firstItem!.newProductData!.sku : (prod?.sku ?? undefined),
-          color: isNew ? firstItem!.newProductData!.color : (prod?.color ?? undefined),
-          size: isNew ? firstItem!.newProductData!.size : (prod?.size ?? undefined),
-        },
+        items: logItems,
+        detail: { warehouse: WAREHOUSE_LABELS[pending.warehouseId], quantity: totalQty, sourceOrReason: pending.source },
       });
     } else {
-      for (const item of pending.items) {
+      // 出库：先校验所有库存充足
+      for (const item of items) {
+        const inv = get().getInventory(item.productId, pending.warehouseId);
+        if (!inv || inv.quantity < item.quantity) return false;
+      }
+      // 全部通过后再扣减
+      for (const item of items) {
         get().subInventory(item.productId, pending.warehouseId, item.quantity);
       }
-      const totalQty = pending.items.reduce((s, i) => s + i.quantity, 0);
-      const firstItem = pending.items[0];
-      const prod = firstItem ? get().getProduct(firstItem.productId) : undefined;
+      const totalQty = items.reduce((s, i) => s + i.quantity, 0);
+
+      // 写入出库单（撤销功能需要）
+      const docId = generateId();
+      const doc: OutboundDoc = {
+        id: docId, reason: pending.reason || '未知', warehouseId: pending.warehouseId,
+        items, operator: pending.username, timestamp: now,
+      };
+      set((s) => ({ outboundDocs: [...s.outboundDocs, doc] }));
+
+      // 构建日志明细
+      const logItems = items.map((item) => {
+        const p = get().getProduct(item.productId);
+        return { sku: p?.sku || '未知', color: p?.color || '', size: p?.size || '',
+                 quantity: item.quantity, price: p?.price || 0 };
+      });
       get().addLog({
-        operator: pending.username, type: 'outbound', documentId: generateId(),
+        operator: pending.username, type: 'outbound', documentId: docId,
         summary: `出库 ${totalQty} 件（${pending.reason}）`,
-        detail: {
-          warehouse: WAREHOUSE_LABELS[pending.warehouseId],
-          quantity: totalQty,
-          sourceOrReason: pending.reason,
-          sku: prod?.sku,
-          color: prod?.color,
-          size: prod?.size,
-        },
+        items: logItems,
+        detail: { warehouse: WAREHOUSE_LABELS[pending.warehouseId], quantity: totalQty, sourceOrReason: pending.reason },
       });
     }
 
@@ -206,6 +232,9 @@ export const useStore = create<WarehouseState>()((set, get) => ({
   },
 
   rejectPending: (id, reviewer) => {
+    if (!get().isAdmin()) return;
+    const pending = get().pendingDocs.find((p) => p.id === id);
+    if (!pending || pending.status !== 'pending') return;
     set((s) => ({
       pendingDocs: s.pendingDocs.map((p) =>
         p.id === id ? { ...p, status: 'rejected', reviewedAt: Date.now(), reviewedBy: reviewer } : p),
@@ -219,6 +248,7 @@ export const useStore = create<WarehouseState>()((set, get) => ({
   },
 
   revokeOperation: (logId) => {
+    if (!get().isAdmin()) return false;
     const log = get().operationLogs.find((l) => l.id === logId);
     if (!log || log.revoked) return false;
 
@@ -227,38 +257,34 @@ export const useStore = create<WarehouseState>()((set, get) => ({
     const now = Date.now();
 
     if (log.type === 'inbound') {
-      // 入库撤销 = 扣回库存
       const doc = get().inboundDocs.find((d) => d.id === log.documentId);
-      if (doc) {
-        for (const item of doc.items) {
-          get().addInventory(item.productId, doc.warehouseId, -(item.quantity || 0));
-        }
+      if (!doc) return false;
+      for (const item of doc.items) {
+        get().addInventory(item.productId, doc.warehouseId, -(item.quantity || 0));
       }
     } else if (log.type === 'outbound') {
-      // 出库撤销 = 加回库存
       const doc = get().outboundDocs.find((d) => d.id === log.documentId);
-      if (doc) {
-        for (const item of doc.items) {
-          get().addInventory(item.productId, doc.warehouseId, item.quantity);
-        }
+      if (!doc) return false;
+      for (const item of doc.items) {
+        get().addInventory(item.productId, doc.warehouseId, item.quantity);
       }
     } else if (log.type === 'transfer') {
-      // 转仓撤销 = 从目标仓退回来源仓
       const doc = get().transferDocs.find((d) => d.id === log.documentId);
-      if (doc) {
-        get().subInventory(doc.productId, doc.toWarehouse as WarehouseId, doc.quantity);
-        get().addInventory(doc.productId, doc.fromWarehouse as WarehouseId, doc.quantity);
-      }
+      if (!doc) return false;
+      // 先校验目标仓库存是否充足
+      const inv = get().getInventory(doc.productId, doc.toWarehouse);
+      if (!inv || inv.quantity < doc.quantity) return false;
+      // 执行回退
+      get().subInventory(doc.productId, doc.toWarehouse, doc.quantity);
+      get().addInventory(doc.productId, doc.fromWarehouse, doc.quantity);
     }
 
-    // 标记撤销
     set((s) => ({
       operationLogs: s.operationLogs.map((l) =>
         l.id === logId ? { ...l, revoked: true, revokeInfo: { operator: username, timestamp: now } } : l
       ),
     }));
 
-    // 生成撤销记录
     get().addLog({
       operator: username, type: log.type, documentId: log.documentId,
       summary: `撤销了 ${log.operator} 的${log.summary}`,

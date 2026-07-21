@@ -181,8 +181,8 @@ export default function OutboundPage() {
                         className={`flex-1 px-1 py-1 rounded border text-xs outline-none text-center min-w-0 ${over ? 'bg-red-50 border-red-300' : 'bg-gray-50 border-gray-100'}`}
                         min={0} max={stock} />
                       {size === '其他' && val > 0 && (
-                        <input type="text" value={(row as any).customSize || ''}
-                          onChange={(e) => updateRow(row.id, { customSize: e.target.value } as any)}
+                        <input type="text" value={(row).customSize || ''}
+                          onChange={(e) => updateRow(row.id, { customSize: e.target.value })}
                           placeholder="码名" className="w-10 px-1 py-1 bg-yellow-50 rounded border border-yellow-200 text-[10px] outline-none" />
                       )}
                     </div>
@@ -215,10 +215,10 @@ export default function OutboundPage() {
           <div className="absolute inset-0 bg-black/40" onClick={() => setShowPasteModal(false)} />
           <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-sm p-5 space-y-3 animate-slide-up">
             <h3 className="font-semibold">粘贴导入</h3>
-            <p className="text-xs text-gray-400">款号\t各尺码数量(8列)</p>
+            <p className="text-xs text-gray-400">款号\t各尺码数量(6列: S/M/L/XL/XXL/其他)</p>
             <textarea value={pasteText} onChange={(e) => setPasteText(e.target.value)}
               className="w-full h-32 px-3 py-2 bg-gray-50 rounded-xl border text-xs outline-none resize-none"
-              placeholder={"SKU-001\t5\t10\t0\t20\t0\t0\t0\t0"} />
+              placeholder={"SKU-001\t5\t10\t0\t20\t0\t0"} />
             <div className="flex gap-2">
               <button onClick={() => { setShowPasteModal(false); setPasteText(''); }}
                 className="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium">取消</button>

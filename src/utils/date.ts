@@ -76,31 +76,28 @@ export function generateTrendSlots(granularity: ChartGranularity): { labels: str
       }
       break;
     case 'month':
-      // 最近6个月
       count = 6;
       slotStart = now.subtract(5, 'month').startOf('month').valueOf();
       for (let i = 5; i >= 0; i--) {
         labels.push(now.subtract(i, 'month').format('YYYY/MM'));
       }
-      slotMs = now.subtract(5, 'month').daysInMonth() * 86400000;
+      slotMs = Math.round(365.25 / 12 * 86400000); // 平均月长 ~30.44天
       break;
     case 'halfYear':
-      // 最近2个半年 = 12个月
       count = 12;
       slotStart = now.subtract(11, 'month').startOf('month').valueOf();
       for (let i = 11; i >= 0; i--) {
         labels.push(now.subtract(i, 'month').format('YYYY/MM'));
       }
-      slotMs = now.subtract(11, 'month').daysInMonth() * 86400000;
+      slotMs = Math.round(365.25 / 12 * 86400000); // 平均月长
       break;
     case 'year':
-      // 最近5年
       count = 5;
       slotStart = now.subtract(4, 'year').startOf('year').valueOf();
       for (let i = 4; i >= 0; i--) {
         labels.push(now.subtract(i, 'year').format('YYYY'));
       }
-      slotMs = 365 * 86400000;
+      slotMs = Math.round(365.25 * 86400000); // 平均年长（含闰年）
       break;
     default:
       count = 7;
