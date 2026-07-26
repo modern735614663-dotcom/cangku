@@ -2,25 +2,27 @@
 
 ## 项目概述
 
-面向手机端的仓库管理 Web 应用，用于管理服装货品的入库、出库、转仓、库存查询和统计分析。
+面向手机端的服装仓库管理 Web 应用，支持入库、出库、转仓、库存查询和统计分析。
 
 - **项目名称**：紫城服饰仓库管理系统
 - **目标平台**：移动端浏览器（手机优先）
-- **数据存储**：浏览器 localStorage（后续迁移到后端数据库）
+- **数据存储**：MySQL（Node.js + Express 后端）
 
 ---
 
 ## 技术栈
 
-| 技术 | 用途 |
-|------|------|
-| React 19 + Vite | 前端框架 + 构建工具 |
-| TypeScript | 强类型语言 |
-| Tailwind CSS v4 | 原子化 CSS，移动端优先 |
-| Zustand | 轻量状态管理 |
-| React Router v7 | SPA 路由 |
-| Recharts | 图表库（折线图） |
-| dayjs | 日期处理 |
+| 层 | 技术 | 用途 |
+|----|------|------|
+| 前端 | React 19 + Vite | 前端框架 + 构建工具 |
+| 前端 | TypeScript | 强类型语言 |
+| 前端 | Tailwind CSS v4 | 原子化 CSS，移动端优先 |
+| 前端 | Zustand | 轻量状态管理 |
+| 前端 | React Router v7 | SPA 路由 |
+| 前端 | Recharts | 图表库 |
+| 后端 | Node.js + Express | API 服务 |
+| 后端 | MySQL | 数据库 |
+| 后端 | JWT (jsonwebtoken) | 用户认证 |
 
 ---
 
@@ -29,9 +31,20 @@
 ```
 warehouse-app/
 ├── CLAUDE.md                    # 项目说明（本文件）
+├── README.md                    # GitHub 首页介绍
+├── 部署教程.md                   # 服务器部署步骤
 ├── index.html                   # 入口 HTML
 ├── vite.config.ts               # Vite 配置
-├── tsconfig.json                # TypeScript 配置
+│
+├── server/                      # 后端
+│   ├── schema.sql               # 数据库建表
+│   ├── seed.js                  # 管理员初始化脚本
+│   ├── .env.example             # 配置模板
+│   └── src/                     # 后端源码
+│       ├── index.ts             # Express 入口
+│       ├── db.ts                # MySQL 连接池
+│       ├── middleware/auth.ts   # JWT 认证中间件
+│       └── routes/              # API 路由
 │
 ├── src/
 │   ├── main.tsx                 # 应用入口

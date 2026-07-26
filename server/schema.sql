@@ -1,8 +1,5 @@
 -- 紫城服饰仓库管理系统 数据库建表语句
--- 在小皮面板中创建数据库 warehouse，然后导入此文件
-
-CREATE DATABASE IF NOT EXISTS warehouse DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE warehouse;
+-- 先在小皮面板中手动创建数据库，然后选中该数据库导入此文件
 
 -- 用户表
 CREATE TABLE IF NOT EXISTS users (

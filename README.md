@@ -1,32 +1,48 @@
-# React + TypeScript + Vite
+# 紫城服饰仓库管理系统
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+面向手机端的服装仓库管理 Web 应用，支持入库、出库、转仓、库存查询和统计分析。
 
-Currently, two official plugins are available:
+## 技术栈
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| 层 | 技术 |
+|----|------|
+| 前端 | React 19 + Vite + TypeScript + Tailwind CSS v4 |
+| 状态管理 | Zustand |
+| 路由 | React Router v7 |
+| 图表 | Recharts |
+| 后端 | Node.js + Express + TypeScript |
+| 数据库 | MySQL |
+| 认证 | JWT (bcryptjs + jsonwebtoken) |
 
-## React Compiler
+## 核心功能
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **双仓管理**：TK备货仓 / 1688预留仓
+- **批量入库/出库/转仓**：多尺码表格模式，支持粘贴 Excel 导入
+- **审核流程**：操作员提交 → 管理员审核 → 库存更新
+- **操作撤销**：管理员可撤销历史操作，库存自动回退
+- **统计分析**：库存量/库存价值、出入库统计、趋势对比图
+- **库存预警**：单码库存 < 5 件标红
+- **库存编辑**：可直接修改货品图片、款号、价格等信息
+- **货品分类**：裙套装/裤套装/连衣裙/单上衣/单裤/单裙/其他
+- **响应式设计**：手机端优先，适配移动屏幕
 
-## Expanding the Oxlint configuration
+## 快速开始
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+### 前端开发
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### 后端开发
+
+```bash
+cd server
+npm install
+npm run dev
+```
+
+## 部署
+
+详见 [部署教程.md](./部署教程.md)

@@ -124,9 +124,9 @@ export default function LoginPage({ onLogin }: Props) {
           </div>
         </div>
 
-        <p className="text-center text-slate-500 text-xs mt-4">
+{/*         <p className="text-center text-slate-500 text-xs mt-4">
           管理员账号: admin / admin123
-        </p>
+        </p> */}
         <button
           onClick={() => {
             localStorage.clear();
