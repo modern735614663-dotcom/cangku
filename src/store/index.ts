@@ -93,6 +93,8 @@ export const useStore = create<WarehouseState>()((set, get) => ({
     const u = res.data!.user;
     const user: User = { id: String(u.id), username: u.username, password: '', role: u.role, createdAt: Date.now() };
     set({ currentUser: user });
+    // 登录成功后加载数据
+    await get().refresh();
     return user;
   },
 
@@ -102,6 +104,8 @@ export const useStore = create<WarehouseState>()((set, get) => ({
     const u = res.data!.user;
     const user: User = { id: String(u.id), username: u.username, password: '', role: u.role, createdAt: Date.now() };
     set({ currentUser: user });
+    // 注册成功后加载数据
+    await get().refresh();
     return user;
   },
 
