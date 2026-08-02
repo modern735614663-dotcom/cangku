@@ -12,7 +12,6 @@ router.post('/', async (req: Request, res: Response) => {
     await conn.beginTransaction();
     const username = req.user!.username;
 
-    // 检查来源仓库存
     const [rows] = await conn.query<any[]>(
       'SELECT quantity FROM inventory WHERE warehouse_id = ? AND product_id = ? FOR UPDATE',
       [from_warehouse, product_id]
@@ -24,10 +23,8 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    // 扣减来源仓
     await conn.query('UPDATE inventory SET quantity = quantity - ? WHERE warehouse_id = ? AND product_id = ?',
       [quantity, from_warehouse, product_id]);
-    // 增加目标仓
     await conn.query('INSERT INTO inventory (warehouse_id, product_id, quantity) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE quantity = quantity + VALUES(quantity)',
       [to_warehouse, product_id, quantity]);
 
@@ -36,13 +33,14 @@ router.post('/', async (req: Request, res: Response) => {
       [from_warehouse, to_warehouse, product_id, quantity, username]
     );
 
-    const [p] = await conn.query<any[]>('SELECT sku FROM products WHERE id = ?', [product_id]);
+    const [p] = await conn.query<any[]>('SELECT sku, color, size FROM products WHERE id = ?', [product_id]);
+    const logItems = [{ sku: p[0]?.sku || '', color: p[0]?.color || '', size: p[0]?.size || '', quantity }];
     await conn.query(
       'INSERT INTO operation_logs (operator, type, doc_id, summary, detail, items) VALUES (?,?,?,?,?,?)',
       [username, 'transfer', doc.insertId,
        `转仓 ${p[0]?.sku || ''} ${quantity}件 ${from_warehouse}→${to_warehouse}`,
        JSON.stringify({ fromWarehouse: from_warehouse, toWarehouse: to_warehouse, quantity }),
-       JSON.stringify([{ productId: product_id, quantity }])]
+       JSON.stringify(logItems)]
     );
 
     await conn.commit();

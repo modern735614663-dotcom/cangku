@@ -17,7 +17,6 @@ export default function InboundPage() {
   const products = useStore((s) => s.products);
   const currentUser = useStore((s) => s.currentUser);
   const submitInbound = useStore((s) => s.submitInbound);
-  const isAdmin = useStore((s) => s.isAdmin);
 
   const [warehouseId, setWarehouseId] = useState<WarehouseId>('warehouse-a');
   const [source, setSource] = useState('采购');
@@ -104,8 +103,7 @@ export default function InboundPage() {
 
     const error = await submitInbound({ source, warehouseId, items });
     if (error) { showToast(error, "error"); return; }
-    showToast(isAdmin() ? "入库成功！" : "已提交审核", "success");
-    navigate("/");
+    showToast('入库成功！', 'success');
     navigate('/');
   };
 
@@ -116,7 +114,6 @@ export default function InboundPage() {
       <div className="px-4 pt-3 space-y-2">
         <div className="bg-blue-50 rounded-xl px-3 py-1.5 text-sm text-blue-700 flex items-center gap-2">
           <span>👤 {currentUser?.username}</span>
-          {!isAdmin() && <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">需审核</span>}
         </div>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {WAREHOUSES.map((w) => (
@@ -284,7 +281,7 @@ export default function InboundPage() {
       <div className="px-4">
         <button onClick={handleSubmit}
           className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 active:bg-blue-700 transition-colors">
-          {isAdmin() ? '确认入库' : '提交审核'}
+          确认入库
         </button>
       </div>
 

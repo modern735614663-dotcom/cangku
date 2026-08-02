@@ -41,13 +41,25 @@ router.put('/:id', async (req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// 删除货品（需管理员）
+// 删除货品
 router.delete('/:id', async (req: Request, res: Response) => {
-  if (req.user?.role !== 'admin') { res.status(403).json({ error: '需要管理员权限' }); return; }
+  const conn = await pool.getConnection();
   try {
-    await pool.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+    await conn.beginTransaction();
+    // 级联删除关联数据
+    await conn.query('DELETE FROM inventory WHERE product_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM inbound_items WHERE product_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM outbound_items WHERE product_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM transfer_docs WHERE product_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM products WHERE id = ?', [req.params.id]);
+    await conn.commit();
     res.json({ success: true });
-  } catch (e: any) { res.status(500).json({ error: e.message }); }
+  } catch (e: any) {
+    await conn.rollback();
+    res.status(500).json({ error: e.message });
+  } finally {
+    conn.release();
+  }
 });
 
 export default router;

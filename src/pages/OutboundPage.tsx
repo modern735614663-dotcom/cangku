@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useStore } from '../store';
 import { getAvailableProducts } from '../utils/stats';
 import { showToast } from '../components/Toast';
-import { OUTBOUND_REASONS, WAREHOUSES, WAREHOUSE_LABELS, SIZES } from '../types';
+import { OUTBOUND_REASONS, WAREHOUSES, SIZES } from '../types';
 import type { WarehouseId, BatchRow } from '../types';
 import { generateId } from '../utils/id';
 
@@ -18,11 +18,7 @@ export default function OutboundPage() {
   const products = useStore((s) => s.products);
   const inventories = useStore((s) => s.inventories);
   const currentUser = useStore((s) => s.currentUser);
-  const subInventory = useStore((s) => s.subInventory);
-  const addLog = useStore((s) => s.addLog);
-  const addPending = useStore((s) => s.addPending);
-  const isAdmin = useStore((s) => s.isAdmin);
-  const save = useStore((s) => s.save);
+  const submitOutbound = useStore((s) => s.submitOutbound);
 
   const [warehouseId, setWarehouseId] = useState<WarehouseId>('warehouse-a');
   const [reason, setReason] = useState('TK总店备货');
@@ -83,8 +79,7 @@ export default function OutboundPage() {
     setShowPasteModal(false); setPasteText('');
   };
 
-  const handleSubmit = () => {
-    const username = currentUser?.username || '未知';
+  const handleSubmit = async () => {
     const validRows = rows.filter((r) => r.productId && Object.values(r.sizes).some(v => v > 0));
     if (validRows.length === 0) { showToast('请至少填写一个尺码数量', 'error'); return; }
 
@@ -103,25 +98,9 @@ export default function OutboundPage() {
     }
     if (items.length === 0) { showToast('无有效出库项', 'error'); return; }
 
-    if (isAdmin()) {
-      let totalQty = 0;
-      for (const item of items) {
-        totalQty += item.quantity;
-        subInventory(item.productId, warehouseId, item.quantity);
-      }
-      const docId = generateId();
-      useStore.setState((s) => ({ outboundDocs: [...s.outboundDocs, { id: docId, reason, warehouseId, items, operator: username, timestamp: Date.now() }] }));
-      addLog({
-        operator: username, type: 'outbound', documentId: docId,
-        summary: `批量出库 ${totalQty} 件（${reason}）`,
-        detail: { warehouse: WAREHOUSE_LABELS[warehouseId], quantity: totalQty, sourceOrReason: reason },
-      });
-      save();
-      showToast(`出库成功！${totalQty} 件`, 'success');
-    } else {
-      addPending({ type: 'outbound', username, reason, warehouseId, items });
-      showToast('已提交审核', 'info');
-    }
+    const error = await submitOutbound({ reason, warehouseId, items });
+    if (error) { showToast(error, 'error'); return; }
+    showToast('出库成功！', 'success');
     navigate('/');
   };
 
@@ -132,7 +111,6 @@ export default function OutboundPage() {
       <div className="px-4 pt-3 space-y-2">
         <div className="bg-orange-50 rounded-xl px-3 py-1.5 text-sm text-orange-700 flex items-center gap-2">
           <span>👤 {currentUser?.username}</span>
-          {!isAdmin() && <span className="ml-auto text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">需审核</span>}
         </div>
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
           {WAREHOUSES.map((w) => (
@@ -222,7 +200,7 @@ export default function OutboundPage() {
       <div className="px-4">
         <button onClick={handleSubmit}
           className="w-full py-3.5 bg-blue-600 text-white font-semibold rounded-xl shadow-lg shadow-blue-200 active:bg-blue-700 transition-colors">
-          {isAdmin() ? '确认出库' : '提交审核'}
+          确认出库
         </button>
       </div>
 

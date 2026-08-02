@@ -1,10 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { useStore } from '../store';
 
 export default function BottomTabNav() {
   const location = useLocation();
-  const isAdmin = useStore((s) => s.isAdmin);
-  const pendingCount = useStore((s) => s.pendingDocs.filter((d) => d.status === 'pending').length);
 
   const tabs = [
     { path: '/', label: '首页', icon: '📊' },
@@ -34,24 +31,6 @@ export default function BottomTabNav() {
             </NavLink>
           );
         })}
-
-        {/* 管理员审核入口（始终显示） */}
-        {isAdmin() && (
-          <NavLink
-            to="/review"
-            className={`flex flex-col items-center justify-center flex-1 h-full transition-colors relative ${
-              location.pathname === '/review' ? 'text-red-600' : 'text-gray-400'
-            }`}
-          >
-            <span className="text-lg leading-none relative">
-              📋
-              <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] px-1 rounded-full leading-tight min-w-[16px] text-center">
-                {pendingCount}
-              </span>
-            </span>
-            <span className="text-[10px] mt-0.5 font-medium leading-none">审核</span>
-          </NavLink>
-        )}
       </div>
     </nav>
   );

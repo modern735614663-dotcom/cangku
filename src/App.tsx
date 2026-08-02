@@ -1,11 +1,10 @@
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import InventoryPage from './pages/InventoryPage';
 import InboundPage from './pages/InboundPage';
 import OutboundPage from './pages/OutboundPage';
 import TransferPage from './pages/TransferPage';
-import ReviewPage from './pages/ReviewPage';
 import LoginPage from './pages/LoginPage';
 import BottomTabNav from './components/BottomTabNav';
 import ToastContainer from './components/Toast';
@@ -17,7 +16,6 @@ const TITLES: Record<string, string> = {
   '/inbound': '入库操作',
   '/outbound': '紫城服饰出库操作',
   '/transfer': '转仓操作',
-  '/review': '审核管理',
 };
 
 function AppShell() {
@@ -27,14 +25,11 @@ function AppShell() {
   const currentUser = useStore((s) => s.currentUser);
   const hydrated = useStore((s) => s.hydrated);
   const logout = useStore((s) => s.logout);
-  const isAdmin = useStore((s) => s.isAdmin);
-  const pendingDocs = useStore((s) => s.pendingDocs);
 
   useEffect(() => {
     loadFromServer();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // 数据未就绪 → 空白加载（避免登录页闪白）
   if (!hydrated) {
     return (
       <div className="min-h-screen bg-slate-800 flex items-center justify-center">
@@ -43,7 +38,6 @@ function AppShell() {
     );
   }
 
-  // 未登录 → 登录页
   if (!currentUser) {
     return (
       <>
@@ -54,26 +48,16 @@ function AppShell() {
   }
 
   const title = TITLES[location.pathname] || '仓库管理';
-  const pendingCount = pendingDocs.filter((d) => d.status === 'pending').length;
 
   return (
     <div className="w-full max-w-lg mx-auto min-h-screen bg-gray-50 relative overflow-x-hidden">
-      {/* 顶部标题栏 */}
       <header className="sticky top-0 z-40 bg-slate-800 px-4 py-3 text-white shadow-md">
         <div className="flex items-center justify-between">
           <h1 className="text-lg font-semibold text-white truncate">{title}</h1>
-          <div className="flex items-center gap-2">
-            {isAdmin() && pendingCount > 0 && (
-              <button onClick={() => navigate('/review')}
-                className="relative bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                审核 {pendingCount}
-              </button>
-            )}
-            <button onClick={() => { logout(); navigate('/'); }}
-              className="text-xs text-slate-300 hover:text-white">
-              退出
-            </button>
-          </div>
+          <button onClick={() => { logout(); navigate('/'); }}
+            className="text-xs text-slate-300 hover:text-white">
+            退出
+          </button>
         </div>
       </header>
 
@@ -84,7 +68,6 @@ function AppShell() {
           <Route path="/inbound" element={<InboundPage />} />
           <Route path="/outbound" element={<OutboundPage />} />
           <Route path="/transfer" element={<TransferPage />} />
-          <Route path="/review" element={isAdmin() ? <ReviewPage /> : <Navigate to="/" replace />} />
         </Routes>
       </main>
 

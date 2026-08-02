@@ -65,11 +65,15 @@ router.post('/:id/revoke', requireAdmin, async (req: Request, res: Response) => 
       }
     }
 
+    // MySQL JSON 列需要字符串，mysql2 可能返回已解析的对象，统一序列化
+    const detailStr = typeof log.detail === 'string' ? log.detail : JSON.stringify(log.detail || {});
+    const itemsStr = typeof log.items === 'string' ? log.items : JSON.stringify(log.items || []);
+
     await conn.query('UPDATE operation_logs SET revoked = 1, revoke_info = ? WHERE id = ?',
       [JSON.stringify({ operator: username, timestamp: new Date().toISOString() }), req.params.id]);
     await conn.query(
       'INSERT INTO operation_logs (operator, type, doc_id, summary, detail, items) VALUES (?,?,?,?,?,?)',
-      [username, log.type, log.doc_id, `撤销了 ${log.operator} 的${log.summary}`, log.detail, log.items]
+      [username, log.type, log.doc_id, `撤销了 ${log.operator} 的${log.summary}`, detailStr, itemsStr]
     );
     await conn.commit();
     res.json({ success: true });
