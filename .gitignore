@@ -28,3 +28,9 @@ dist-ssr
 
 # Build artifacts
 *.zip
+*.doc
+
+# Deployment packages
+warehouse-frontend-*.zip
+warehouse-backend-*.zip
+warehouse-deploy-*.zip
