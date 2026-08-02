@@ -7,9 +7,10 @@ interface Props {
   logs: OperationLog[];
   onLogClick: (log: OperationLog) => void;
   onRevoke: (logId: string) => Promise<boolean>;
+  currentUsername?: string;
 }
 
-export default function OperationLogList({ logs, onLogClick, onRevoke }: Props) {
+export default function OperationLogList({ logs, onLogClick, onRevoke, currentUsername }: Props) {
   const [confirmId, setConfirmId] = useState<string | null>(null);
 
   if (logs.length === 0) {
@@ -45,8 +46,8 @@ export default function OperationLogList({ logs, onLogClick, onRevoke }: Props) 
                 <span className="text-xs text-gray-400">{relativeTime(log.timestamp)}</span>
               </button>
 
-              {/* 撤销按钮 */}
-              {!isRevoked && (
+              {/* 撤销按钮（只能撤销自己的操作） */}
+              {!isRevoked && log.operator === currentUsername && (
                 <div className="shrink-0">
                   {confirmId === log.id ? (
                     <div className="flex gap-1">

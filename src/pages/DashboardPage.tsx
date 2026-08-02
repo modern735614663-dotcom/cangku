@@ -193,7 +193,7 @@ export default function DashboardPage() {
           <span className="text-sm">📝</span>
           <span className="text-xs text-gray-500 font-medium">操作记录（点击查看详情）</span>
         </div>
-        <OperationLogList logs={recentLogs} onLogClick={setSelectedLog} onRevoke={revokeOperation} />
+        <OperationLogList logs={recentLogs} onLogClick={setSelectedLog} onRevoke={revokeOperation} currentUsername={currentUser?.username} />
       </div>
 
       {selectedLog && (

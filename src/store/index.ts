@@ -218,7 +218,6 @@ export const useStore = create<WarehouseState>()((set, get) => ({
   addLog: () => {}, // 由后端生成
 
   revokeOperation: async (logId) => {
-    if (!get().isAdmin()) return false;
     const res = await api.revokeOperation(Number(logId));
     if (res.error) return false;
     await get().refresh();

@@ -13,8 +13,8 @@ router.get('/', async (_req: Request, res: Response) => {
   } catch (e: any) { res.status(500).json({ error: e.message }); }
 });
 
-// 撤销操作（管理员）
-router.post('/:id/revoke', requireAdmin, async (req: Request, res: Response) => {
+// 撤销操作（只能撤销自己的）
+router.post('/:id/revoke', requireAuth, async (req: Request, res: Response) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -22,6 +22,8 @@ router.post('/:id/revoke', requireAdmin, async (req: Request, res: Response) => 
       [req.params.id]);
     if (logs.length === 0) { await conn.rollback(); res.status(404).json({ error: '记录不存在或已撤销' }); return; }
     const log = logs[0];
+    // 只能撤销自己的操作
+    if (log.operator !== req.user!.username) { await conn.rollback(); res.status(403).json({ error: '只能撤销自己的操作' }); return; }
     const detail = typeof log.detail === 'string' ? JSON.parse(log.detail) : log.detail;
     const username = req.user!.username;
 
