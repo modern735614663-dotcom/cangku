@@ -92,14 +92,17 @@ export default function InventoryPage() {
     setEditingProduct(null);
   };
 
-  const deleteProduct = () => {
+  const deleteProduct = async () => {
     if (!editingProduct) return;
     const relatedIds = mergedRows.find((r) => r.productIds.includes(editingProduct.id))?.productIds || [editingProduct.id];
-    useStore.setState((s) => ({
-      products: s.products.filter((p) => !relatedIds.includes(p.id)),
-      inventories: s.inventories.filter((i) => !relatedIds.includes(i.productId)),
-    }));
-    save();
+    // 调用后端 API 删除
+    const { deleteProduct: apiDelete } = await import('../api/endpoints');
+    for (const id of relatedIds) {
+      await apiDelete(Number(id));
+    }
+    // 刷新数据
+    const refresh = useStore.getState().refresh;
+    await refresh();
     setEditingProduct(null);
   };
 
