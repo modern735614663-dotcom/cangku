@@ -5,8 +5,8 @@ import StatCard from '../components/StatCard';
 import OperationLogList from '../components/OperationLogList';
 import LogDetailModal from '../components/LogDetailModal';
 import {
-  calcTotalStock, calcStockByWarehouse, calcTotalOutbound,
-  calcOutboundValue, calcTrendComparison, calcTotalValue, calcTotalInbound,
+  calcTotalStock, calcStockByWarehouse, calcLogTotal,
+  calcLogOutboundValue, calcLogTrendComparison, calcTotalValue,
 } from '../utils/stats';
 import type { WarehouseId, Period, ChartGranularity, OperationLog } from '../types';
 import {
@@ -33,8 +33,6 @@ export default function DashboardPage() {
 
   const products = useStore((s) => s.products);
   const inventories = useStore((s) => s.inventories);
-  const outboundDocs = useStore((s) => s.outboundDocs);
-  const inboundDocs = useStore((s) => s.inboundDocs);
   const operationLogs = useStore((s) => s.operationLogs);
   const currentUser = useStore((s) => s.currentUser);
   const revokeOperation = useStore((s) => s.revokeOperation);
@@ -50,24 +48,25 @@ export default function DashboardPage() {
     'warehouse-b': calcTotalValue(products, inventories, 'warehouse-b'),
   }), [products, inventories]);
 
+  // 从操作日志计算统计数据
   const outboundStats = useMemo(() =>
     PERIODS.map((p) => ({
-      ...p, value: calcTotalOutbound(outboundDocs, p.key, warehouseId),
-      valueAmount: calcOutboundValue(products, outboundDocs, p.key, warehouseId),
+      ...p, value: calcLogTotal(operationLogs, 'outbound', p.key, warehouseId),
+      valueAmount: calcLogOutboundValue(operationLogs, p.key, warehouseId),
     })),
-    [outboundDocs, warehouseId, products]
+    [operationLogs, warehouseId]
   );
 
   const inboundStats = useMemo(() =>
     PERIODS.map((p) => ({
-      ...p, value: calcTotalInbound(inboundDocs, p.key, warehouseId),
+      ...p, value: calcLogTotal(operationLogs, 'inbound', p.key, warehouseId),
     })),
-    [inboundDocs, warehouseId]
+    [operationLogs, warehouseId]
   );
 
   const trendSeries = useMemo(
-    () => calcTrendComparison(outboundDocs, granularity, warehouseId),
-    [outboundDocs, granularity, warehouseId]
+    () => calcLogTrendComparison(operationLogs, granularity, warehouseId),
+    [operationLogs, granularity, warehouseId]
   );
 
   // 合并趋势数据供 Recharts 使用
