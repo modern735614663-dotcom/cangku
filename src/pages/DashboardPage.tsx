@@ -6,7 +6,7 @@ import OperationLogList from '../components/OperationLogList';
 import LogDetailModal from '../components/LogDetailModal';
 import {
   calcTotalStock, calcStockByWarehouse, calcLogTotal,
-  calcLogOutboundValue, calcLogTrendComparison, calcTotalValue,
+  calcLogOutboundValue, calcLogInboundValue, calcLogTrendComparison, calcTotalValue,
 } from '../utils/stats';
 import type { WarehouseId, Period, ChartGranularity, OperationLog } from '../types';
 import {
@@ -60,6 +60,7 @@ export default function DashboardPage() {
   const inboundStats = useMemo(() =>
     PERIODS.map((p) => ({
       ...p, value: calcLogTotal(operationLogs, 'inbound', p.key, warehouseId),
+      valueAmount: calcLogInboundValue(operationLogs, p.key, warehouseId),
     })),
     [operationLogs, warehouseId]
   );
@@ -141,6 +142,7 @@ export default function DashboardPage() {
               <div key={s.key} className="text-center">
                 <div className="text-xs text-gray-400">{s.label}</div>
                 <div className="text-base font-bold text-gray-900">{s.value}</div>
+                <div className="text-[10px] text-gray-400">¥{s.valueAmount.toLocaleString()}</div>
               </div>
             ))}
           </div>

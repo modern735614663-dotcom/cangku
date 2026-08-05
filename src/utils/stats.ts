@@ -26,6 +26,12 @@ export function calcLogTotal(
     .reduce((s, l) => s + (l.detail?.quantity || 0), 0);
 }
 
+/** 从日志 items 中统计金额 */
+function calcLogItemsValue(log: OperationLog): number {
+  const items = (typeof log.items === 'string' ? JSON.parse(log.items) : log.items) || [];
+  return items.reduce((s: number, i: any) => s + (i.quantity || 0) * (i.price || 0), 0);
+}
+
 /** 从日志统计出库金额 */
 export function calcLogOutboundValue(
   logs: OperationLog[],
@@ -38,7 +44,24 @@ export function calcLogOutboundValue(
     if (l.type !== 'outbound' || l.revoked) continue;
     if (l.timestamp < start || l.timestamp > end) continue;
     if (warehouseId && l.detail?.warehouse !== warehouseId) continue;
-    total += (l.detail?.quantity || 0) * (l.detail?.price || 0);
+    total += calcLogItemsValue(l);
+  }
+  return Math.round(total * 100) / 100;
+}
+
+/** 从日志统计入库金额 */
+export function calcLogInboundValue(
+  logs: OperationLog[],
+  period: Period,
+  warehouseId?: WarehouseId
+): number {
+  const { start, end } = getPeriodRange(period);
+  let total = 0;
+  for (const l of logs) {
+    if (l.type !== 'inbound' || l.revoked) continue;
+    if (l.timestamp < start || l.timestamp > end) continue;
+    if (warehouseId && l.detail?.warehouse !== warehouseId) continue;
+    total += calcLogItemsValue(l);
   }
   return Math.round(total * 100) / 100;
 }
