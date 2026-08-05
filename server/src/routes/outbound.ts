@@ -37,15 +37,16 @@ router.post('/', async (req: Request, res: Response) => {
     const logItems: any[] = [];
     for (const item of items) {
       totalQty += item.quantity;
-      await conn.query('INSERT INTO outbound_items (doc_id, product_id, quantity, price) VALUES (?,?,?,0)',
-        [docId, item.productId, item.quantity]);
+      const [prods] = await conn.query<any[]>('SELECT sku, color, size, price FROM products WHERE id = ?', [item.productId]);
+      const prodPrice = prods[0]?.price || 0;
+      await conn.query('INSERT INTO outbound_items (doc_id, product_id, quantity, price) VALUES (?,?,?,?)',
+        [docId, item.productId, item.quantity, prodPrice]);
       await conn.query(
         'UPDATE inventory SET quantity = quantity - ? WHERE warehouse_id = ? AND product_id = ?',
         [item.quantity, warehouse_id, item.productId]
       );
-      const [prods] = await conn.query<any[]>('SELECT sku, color, size FROM products WHERE id = ?', [item.productId]);
       if (prods.length > 0) {
-        logItems.push({ sku: prods[0].sku, color: prods[0].color, size: prods[0].size, quantity: item.quantity });
+        logItems.push({ sku: prods[0].sku, color: prods[0].color, size: prods[0].size, quantity: item.quantity, price: prodPrice });
       }
     }
     await conn.query(
